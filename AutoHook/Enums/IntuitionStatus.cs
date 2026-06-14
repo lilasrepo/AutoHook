@@ -1,6 +1,7 @@
 ﻿namespace AutoHook.Enums;
 
-public enum IntuitionStatus {
+public enum IntuitionStatus
+{
     NotActive,
     Gained,
     Active,

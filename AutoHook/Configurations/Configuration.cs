@@ -1,27 +1,38 @@
-using AutoHook.Conditions;
-using AutoHook.Configurations.Legacy;
-using AutoHook.Spearfishing;
-using Dalamud.Configuration;
+﻿using Dalamud.Configuration;
 using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
-using System.IO;
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
 using System.IO.Compression;
+using System.IO;
+using System.Linq;
+using System.Text;
+using AutoHook.Classes;
+using AutoHook.Configurations.old_config;
+using AutoHook.Fishing;
+using AutoHook.Resources.Localization;
+using AutoHook.Spearfishing;
+using AutoHook.Utils;
 
 namespace AutoHook.Configurations;
 
 [Serializable]
-public partial class Configuration : IPluginConfiguration {
-    public const int LatestVersion = 7;
-
-    public int Version { get; set; } = LatestVersion;
+public class Configuration : IPluginConfiguration
+{
+    public int Version { get; set; } = 5;
     public string CurrentLanguage { get; set; } = @"en";
 
-    public bool HideLocButton = true;
-    public bool PluginEnabled = true;
+    public bool HideLocButtonn = true;
+
+    [DefaultValue(true)] public bool PluginEnabled = true;
+
     public FishingPresets HookPresets = new();
+
     public SpearFishingPresets AutoGigConfig = new();
+
     public bool ShowDebugConsole = false;
-    public bool ShowChatLogs = true;
+
+    [DefaultValue(true)] public bool ShowChatLogs = true;
 
     public int DelayBetweenCastsMin = 600;
     public int DelayBetweenCastsMax = 1000;
@@ -32,7 +43,7 @@ public partial class Configuration : IPluginConfiguration {
     public int DelayBeforeCancelMin = 1500;
     public int DelayBeforeCancelMax = 2000;
 
-    public bool ShowStatus = true;
+    [DefaultValue(true)] public bool ShowStatus = true;
     public bool ShowPresetsAsSidebar = false;
 
     public bool HideTabDescription = false;
@@ -40,39 +51,91 @@ public partial class Configuration : IPluginConfiguration {
     public bool SwapToButtons = false;
     public int SwapType;
 
-    public bool DontHideOptionsDisabled = true;
-    public bool ResetAfkTimer = true;
-    public bool BlockInputWhileFishing = false;
-    public bool AutoStartFishing = false;
-    public bool AutoOceanFish = false;
-    public bool DtrBarEnabled = false;
-    public bool DtrPresetBarEnabled = false;
+    [DefaultValue(true)] public bool DontHideOptionsDisabled = true;
 
-    public bool AutoCollectablesEnabled = true;
-    public ConditionSet? AutoCollectablesConditions { get; set; }
+    [DefaultValue(true)] public bool ResetAfkTimer = true;
 
-    private void WriteVersionBackup(int fromVersion) {
-        try {
-            var dir = Svc.Interface.GetPluginConfigDirectory();
-            var fileName = $"autohook_v{fromVersion}_backup.json";
-            var path = Path.Combine(dir, fileName);
+    // old config
+    public List<BaitPresetConfig> BaitPresetList = new();
 
-            if (File.Exists(path)) {
-                var stamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-                path = Path.Combine(dir, $"autohook_v{fromVersion}_backup_{stamp}.json");
+    public void Save()
+    {
+        Service.PluginInterface!.SavePluginConfig(this);
+    }
+
+    public void UpdateVersion()
+    {
+        if (Version == 1)
+        {
+            Version = 2;
+        }
+
+        if (Version == 2)
+        {
+            try
+            {
+                foreach (var preset in BaitPresetList)
+                {
+                    var newPreset = ConvertOldPreset(preset);
+                    if (newPreset != null)
+                        HookPresets.CustomPresets.Add(newPreset);
+                }
+
+                Version = 3;
+            }
+            catch (Exception e)
+            {
+                Service.PrintDebug(@$"[Configuration] {e.Message}");
+            }
+        }
+
+        if (Version == 3)
+        {
+            Service.PrintDebug(@$"[Configuration] Updating to v4");
+
+            Save();
+            Version = 4;
+        }
+
+        if (Version == 4)
+        {
+            Service.PrintDebug(@$"[Configuration] Updating to v5");
+
+            foreach (var gig in AutoGigConfig.Presets)
+            {
+                Service.PrintDebug($"Renaming {gig.PresetName} to {gig.Name}");
+                gig.PresetName = gig.Name;
             }
 
-            var json = JsonConvert.SerializeObject(this, new JsonSerializerSettings { Formatting = Formatting.Indented, DefaultValueHandling = DefaultValueHandling.Include });
+            HookPresets.DefaultPreset.PresetName = Service.GlobalPresetName;
 
-            File.WriteAllText(path, json, Encoding.UTF8);
-            Service.PrintDebug(@$"[Configuration] Wrote backup to {path}");
-        }
-        catch (Exception e) {
-            Svc.Log.Warning(@$"[Configuration] Failed to write v{fromVersion} backup: {e.Message}");
+            Save();
+            Version = 5;
         }
     }
 
-    public void Initiate() {
+    private static void SetFieldNewClass(HookConfig newOne, BaitConfig old)
+    {
+        var oldType = old.GetType();
+        var newType = newOne.GetType();
+
+        var oldFields = oldType.GetFields();
+        var newFields = newType.GetFields();
+
+        foreach (var sourceField in oldFields)
+        {
+            var targetField =
+                newFields.FirstOrDefault(f => f.Name == sourceField.Name && f.FieldType == sourceField.FieldType);
+            if (targetField != null)
+            {
+                var value = sourceField.GetValue(old);
+                targetField.SetValue(newOne, value);
+            }
+        }
+    }
+
+    public void Initiate()
+    {
         if (HookPresets.DefaultPreset.ListOfBaits.Count != 0)
             return;
 
@@ -83,139 +146,160 @@ public partial class Configuration : IPluginConfiguration {
         HookPresets.DefaultPreset.ListOfMooch.Add(new HookConfig(mooch));
     }
 
+    public static Configuration Load()
+    {
+        try
+        {
+            if (Service.PluginInterface.GetPluginConfig() is Configuration config)
+            {
+                config.Initiate();
+                config.UpdateVersion();
+                config.Save();
+                return config;
+            }
+
+            config = new Configuration();
+            config.Initiate();
+            config.Save();
+            return config;
+        }
+        catch (Exception e)
+        {
+            Service.PluginLog.Error(@$"[Configuration] {e.Message}");
+            throw;
+        }
+    }
+
+    public static void ResetConfig()
+    {
+    }
+
     // Got the export/import function from the UnknownX7's ReAction repo
-    public static string ExportPreset(BasePresetConfig preset) {
-        var exported = CompressString(JsonConvert.SerializeObject(preset, new JsonSerializerSettings { DefaultValueHandling = DefaultValueHandling.Include }));
+    /*public static string ExportPreset(CustomPresetConfig preset)
+    {
+        return CompressString(JsonConvert.SerializeObject(preset,
+            new JsonSerializerSettings { DefaultValueHandling = DefaultValueHandling.Ignore }));
+    }*/
+
+    public static string ExportPreset(BasePresetConfig preset)
+    {
+        var exported = CompressString(JsonConvert.SerializeObject(preset,
+            new JsonSerializerSettings { DefaultValueHandling = DefaultValueHandling.Ignore }));
 
         // check if preset is type of AutoGigConfig or CustomPresetConfig
         if (preset is AutoGigConfig)
             return ExportPrefixSf + exported;
         else if (preset is CustomPresetConfig)
-            return ExportPrefixV6 + exported;
+            return ExportPrefixV4 + exported;
 
         return "Something went wrong while exporting the preset";
     }
 
-    public class FolderExport(string name) {
-        public string FolderName { get; set; } = name;
-        public List<CustomPresetConfig> Presets { get; set; } = [];
-        public List<FolderExport> ChildFolders { get; set; } = [];
+    public class FolderExport
+    {
+        public string FolderName { get; set; }
+        public List<CustomPresetConfig> Presets { get; set; } = new();
+
+        public FolderExport(string name)
+        {
+            FolderName = name;
+        }
     }
 
-    public static string ExportFolder(PresetFolder folder, List<CustomPresetConfig> presets, List<PresetFolder> allFolders) {
-        var folderExport = BuildFolderExport(folder, presets, allFolders);
+    public static string ExportFolder(PresetFolder folder, List<CustomPresetConfig> presets)
+    {
+        var folderExport = new FolderExport(folder.FolderName);
 
-        var exported = CompressString(JsonConvert.SerializeObject(folderExport, new JsonSerializerSettings { DefaultValueHandling = DefaultValueHandling.Include }));
+        foreach (var presetId in folder.PresetIds)
+        {
+            var preset = presets.FirstOrDefault(p => p.UniqueId == presetId);
+            if (preset != null)
+            {
+                folderExport.Presets.Add(preset);
+            }
+        }
+
+        var exported = CompressString(JsonConvert.SerializeObject(folderExport,
+            new JsonSerializerSettings { DefaultValueHandling = DefaultValueHandling.Ignore }));
 
         return ExportPrefixFolder + exported;
     }
 
-    private static FolderExport BuildFolderExport(PresetFolder folder, List<CustomPresetConfig> presets, List<PresetFolder> allFolders) {
-        var folderExport = new FolderExport(folder.FolderName);
-
-        foreach (var presetId in folder.PresetIds) {
-            var preset = presets.FirstOrDefault(p => p.UniqueId == presetId);
-            if (preset != null)
-                folderExport.Presets.Add(preset);
-        }
-
-        foreach (var childFolder in allFolders.Where(f => f.ParentFolderId == folder.UniqueId))
-            folderExport.ChildFolders.Add(BuildFolderExport(childFolder, presets, allFolders));
-
-        return folderExport;
-    }
-
-    private static T? DeserializePresetImport<T>(string json, bool applyLegacyDefaults = false) where T : class {
-        var token = JToken.Parse(json);
-        var result = token.ToObject<T>(JsonSerializer.Create(new() { ObjectCreationHandling = ObjectCreationHandling.Replace }));
-        if (result != null && applyLegacyDefaults)
-            LegacyDefaults.Apply(token, result);
-        return result;
-    }
-
-    public static (PresetFolder Folder, List<PresetFolder> Folders, List<CustomPresetConfig> Presets)? ImportFolder(string import) {
-        import = import.Trim();
+    public static (PresetFolder Folder, List<CustomPresetConfig> Presets)? ImportFolder(string import)
+    {
         if (!import.StartsWith(ExportPrefixFolder))
             return null;
 
-        try {
-            var json = ConfigurationJsonMigrator.MigrateImportedFolderExport(DecompressString(import));
-            var folderData = DeserializePresetImport<FolderExport>(json);
+        try
+        {
+            var folderData = JsonConvert.DeserializeObject<FolderExport>(DecompressString(import),
+                new JsonSerializerSettings { ObjectCreationHandling = ObjectCreationHandling.Replace });
 
             if (folderData == null)
                 return null;
 
-            var allFolders = new List<PresetFolder>();
-            var allPresets = new List<CustomPresetConfig>();
-            var root = ImportFolderExport(folderData, null, allFolders, allPresets);
+            var folder = new PresetFolder(folderData.FolderName);
 
-            return (root, allFolders, allPresets);
+            // Generate new GUIDs for all presets to avoid conflicts
+            foreach (var preset in folderData.Presets)
+            {
+                preset.UniqueId = Guid.NewGuid();
+                folder.AddPreset(preset.UniqueId);
+            }
+
+            return (folder, folderData.Presets);
         }
-        catch (Exception e) {
-            Svc.Log.Error($"Failed to import folder: {e.Message}");
+        catch (Exception e)
+        {
+            Service.PluginLog.Error($"Failed to import folder: {e.Message}");
             return null;
         }
     }
 
-    private static PresetFolder ImportFolderExport(FolderExport data, Guid? parentFolderId, List<PresetFolder> allFolders, List<CustomPresetConfig> allPresets) {
-        var folder = new PresetFolder(data.FolderName) {
-            ParentFolderId = parentFolderId
-        };
-
-        foreach (var preset in data.Presets) {
-            preset.UniqueId = Guid.NewGuid();
-            folder.AddPreset(preset.UniqueId);
-            allPresets.Add(preset);
+    public static BasePresetConfig? ImportPreset(string import)
+    {
+        if (import.StartsWith(ExportPrefixV2))
+        {
+            var old = JsonConvert.DeserializeObject<BaitPresetConfig>(DecompressString(import),
+                new JsonSerializerSettings() { ObjectCreationHandling = ObjectCreationHandling.Replace });
+            return ConvertOldPreset(old);
         }
 
-        allFolders.Add(folder);
+        if (import.StartsWith(ExportPrefixV3))
+        {
+            var old = JsonConvert.DeserializeObject<OldPresetConfig>(DecompressString(import),
+                new JsonSerializerSettings() { ObjectCreationHandling = ObjectCreationHandling.Replace });
 
-        foreach (var child in data.ChildFolders ?? [])
-            ImportFolderExport(child, folder.UniqueId, allFolders, allPresets);
-
-        return folder;
-    }
-
-    public static BasePresetConfig? ImportPreset(string import) {
-        import = import.Trim();
-        var json = DecompressString(import);
-
-        if (import.StartsWith(ExportPrefixV2)) {
-            var old = DeserializePresetImport<BaitPresetConfig>(json, applyLegacyDefaults: true);
-            return old == null ? null : LegacyPresetMapper.ConvertOldPreset(old);
-        }
-
-        if (import.StartsWith(ExportPrefixV3)) {
-            var old = DeserializePresetImport<OldPresetConfig>(json, applyLegacyDefaults: true);
-            return old == null ? null : LegacyPresetMapper.ConvertOldPresetV3(old);
+            return ConvertOldPresetV3(old);
         }
 
         if (import.StartsWith(ExportPrefixSf))
-            return DeserializePresetImport<AutoGigConfig>(json);
+        {
+            var autogig = JsonConvert.DeserializeObject<AutoGigConfig>(DecompressString(import),
+                new JsonSerializerSettings() { ObjectCreationHandling = ObjectCreationHandling.Replace });
 
-        json = ConfigurationJsonMigrator.MigrateImportedPreset(json);
-        return DeserializePresetImport<CustomPresetConfig>(json);
+            return autogig;
+        }
+
+        var importActionStack = JsonConvert.DeserializeObject<CustomPresetConfig>(DecompressString(import),
+            new JsonSerializerSettings() { ObjectCreationHandling = ObjectCreationHandling.Replace });
+        return importActionStack;
     }
 
-    [NonSerialized] public const string ExportPrefixV2 = "AH_";
-    [NonSerialized] public const string ExportPrefixV3 = "AH3_";
-    [NonSerialized] public const string ExportPrefixV4 = "AH4_";
-    [NonSerialized] public const string ExportPrefixV6 = "AH6_";
-    [NonSerialized] public const string ExportPrefixSf = "AHSF1_";
-    [NonSerialized] public const string ExportPrefixFolder = "AHFOLDER_";
+    [NonSerialized] private const string ExportPrefixV2 = "AH_";
+    [NonSerialized] private const string ExportPrefixV3 = "AH3_";
+    [NonSerialized] private const string ExportPrefixV4 = "AH4_";
+    [NonSerialized] private const string ExportPrefixSf = "AHSF1_";
+    [NonSerialized] private const string ExportPrefixFolder = "AHFOLDER_";
 
-    [NonSerialized]
-    public static readonly IReadOnlyList<string> ExportPrefixes =
+
+    [NonSerialized] private static readonly List<string> ExportPrefixes =
     [
-        ExportPrefixV2,
-        ExportPrefixV3,
-        ExportPrefixV4,
-        ExportPrefixV6,
-        ExportPrefixSf,
-        ExportPrefixFolder
+        ExportPrefixV2, ExportPrefixV3, ExportPrefixV4, ExportPrefixSf, ExportPrefixFolder
     ];
 
-    public static string CompressString(string s) {
+    public static string CompressString(string s)
+    {
         var bytes = Encoding.UTF8.GetBytes(s);
         using var ms = new MemoryStream();
         using (var gs = new GZipStream(ms, CompressionMode.Compress))
@@ -224,23 +308,31 @@ public partial class Configuration : IPluginConfiguration {
         return Convert.ToBase64String(ms.ToArray());
     }
 
-    public static string DecompressString(string s) {
-        s = s.Trim();
+    public static string DecompressString(string s)
+    {
         if (!ExportPrefixes.Any(s.StartsWith))
             throw new ApplicationException(UIStrings.DecompressString_Invalid_Import);
 
         var prefix = ExportPrefixes.First(s.StartsWith);
-        var data = Convert.FromBase64String(s[prefix.Length..].Trim());
+        var data = Convert.FromBase64String(s[prefix.Length..]);
+        var lengthBuffer = new byte[4];
+        Array.Copy(data, data.Length - 4, lengthBuffer, 0, 4);
+        var uncompressedSize = BitConverter.ToInt32(lengthBuffer, 0);
 
-        using var ms = new MemoryStream(data);
-        using var gzip = new GZipStream(ms, CompressionMode.Decompress);
-        using var result = new MemoryStream();
-        gzip.CopyTo(result);
-        return Encoding.UTF8.GetString(result.ToArray());
+        var buffer = new byte[uncompressedSize];
+        using (var ms = new MemoryStream(data))
+        {
+            using var gzip = new GZipStream(ms, CompressionMode.Decompress);
+            gzip.Read(buffer, 0, uncompressedSize);
+        }
+
+        return Encoding.UTF8.GetString(buffer);
     }
 
-    public static string DecompressBase64(string base64) {
-        try {
+    public static string DecompressBase64(string base64)
+    {
+        try
+        {
             var bytes = Convert.FromBase64String(base64);
             using var compressedStream = new MemoryStream(bytes);
             using var zipStream = new GZipStream(compressedStream, CompressionMode.Decompress);
@@ -249,9 +341,84 @@ public partial class Configuration : IPluginConfiguration {
             bytes = resultStream.ToArray();
             return Encoding.UTF8.GetString(bytes, 1, bytes.Length - 1);
         }
-        catch (Exception e) {
-            Svc.Log.Error(@$"Failed to DecompressBase64: {e.Message}");
+        catch (Exception e)
+        {
+            Service.PluginLog.Error(@$"Failed to DecompressBase64: {e.Message}");
             return "";
         }
+    }
+
+    private static CustomPresetConfig? ConvertOldPreset(BaitPresetConfig? preset)
+    {
+        if (preset == null)
+            return null;
+
+        var filteredBaits = new List<HookConfig>();
+        var filteredMooch = new List<HookConfig>();
+        foreach (var old in preset.ListOfBaits)
+        {
+            var matchingBait = GameRes.Baits.FirstOrDefault(b => b.Name == old.BaitName);
+            var matchingFish = GameRes.Fishes.FirstOrDefault(f => f.Name == old.BaitName);
+
+            if (matchingBait != null)
+            {
+                var newOne = new HookConfig(matchingBait);
+                SetFieldNewClass(newOne, old);
+                filteredBaits.Add(newOne);
+            }
+            else if (matchingFish != null)
+            {
+                var newOne = new HookConfig(matchingFish);
+                SetFieldNewClass(newOne, old);
+                filteredMooch.Add(newOne);
+            }
+        }
+
+        CustomPresetConfig newPreset = new(@$"[Old Version] {preset.PresetName}");
+        newPreset.ListOfBaits = filteredBaits;
+        newPreset.ListOfMooch = filteredMooch;
+        return newPreset;
+    }
+
+    private static CustomPresetConfig? ConvertOldPresetV3(OldPresetConfig? old)
+    {
+        if (old == null)
+            return null;
+
+        var newPreset = new CustomPresetConfig(old.PresetName);
+
+        Service.PrintDebug($"Converting v3 to v4: {old.PresetName}");
+        foreach (var bait in old.ListOfBaits)
+        {
+            bait.ConvertV3ToV4();
+
+            var newBait = new HookConfig(bait.BaitFish);
+
+            newBait.Enabled = bait.Enabled;
+            newBait.NormalHook = bait.NormalHook;
+            newBait.IntuitionHook = bait.IntuitionHook;
+            newBait.IntuitionHook.UseCustomStatusHook = bait.UseCustomIntuitionHook;
+
+            newPreset.AddItem(newBait);
+        }
+
+        foreach (var mooch in old.ListOfMooch)
+        {
+            mooch.ConvertV3ToV4();
+            var newMooch = new HookConfig(mooch.BaitFish);
+
+            newMooch.Enabled = mooch.Enabled;
+            newMooch.NormalHook = mooch.NormalHook;
+            newMooch.IntuitionHook = mooch.IntuitionHook;
+            newMooch.IntuitionHook.UseCustomStatusHook = mooch.UseCustomIntuitionHook;
+
+            newPreset.AddItem(newMooch);
+        }
+
+        newPreset.ListOfFish = old.ListOfFish;
+        newPreset.ExtraCfg = old.ExtraCfg;
+        newPreset.AutoCastsCfg = old.AutoCastsCfg;
+
+        return newPreset;
     }
 }

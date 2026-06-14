@@ -1,6 +1,7 @@
 ﻿namespace AutoHook.Enums;
 
-public enum OpenWindow {
+public enum OpenWindow
+{
     None,
     Global,
     FishingPreset,

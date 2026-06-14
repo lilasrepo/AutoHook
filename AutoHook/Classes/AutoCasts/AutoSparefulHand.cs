@@ -1,30 +1,22 @@
+﻿using AutoHook.Resources.Localization;
 using FFXIVClientStructs.FFXIV.Client.Game;
 
 namespace AutoHook.Classes.AutoCasts;
 
-public sealed class AutoSparefulHand : BaseActionCast {
-    public AutoSparefulHand() : base(IDs.Actions.SparefulHand, ActionType.Action) { }
-
-    public override string GetName() => UIStrings.SparefulHand;
-
-    public override string GetHelpText() => UIStrings.SparefulHand_HelpText;
-
-    public uint? FishIdToCheck { get; set; }
-
-    public override bool CastCondition() {
-        var ws = Service.WorldState;
-        if (FishIdToCheck is { } fishId)
-            ws.SwimbaitEvaluationFishId = fishId;
-        try {
-            return EvaluateConditionSet();
-        }
-        finally {
-            ws.SwimbaitEvaluationFishId = 0;
-        }
+public class AutoSparefulHand : BaseActionCast
+{
+    public AutoSparefulHand(string name, uint id, ActionType actionType = ActionType.Action) : base(name, id,
+        actionType)
+    {
     }
 
-    protected override DrawOptionsDelegate? DrawOptions => () => DrawAutoCastConditions(showSubPrefix: false);
+    public override string GetName()
+        => Name = UIStrings.SparefulHand;
 
-    public override int Priority { get; set; } = 20;
-    public override bool IsExcludedPriority { get; set; } = false;
+    public override bool CastCondition()
+    {
+        return true;
+    }
+
+    public override bool IsExcludedPriority { get; set; }
 }

@@ -1,6 +1,7 @@
 ﻿namespace AutoHook.Enums;
 
-public enum SpectralCurrentStatus {
+public enum SpectralCurrentStatus
+{
     NotActive,
     Gained,
     Active,

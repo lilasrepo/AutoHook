@@ -1,16 +1,18 @@
+using System.Runtime.InteropServices;
 using AutoHook.Spearfishing.Enums;
 using FFXIVClientStructs.FFXIV.Component.GUI;
-using System.Runtime.InteropServices;
 
 namespace AutoHook.Spearfishing.Struct;
 
 [StructLayout(LayoutKind.Explicit)]
-public struct SpearfishWindow {
+public struct SpearfishWindow
+{
     [FieldOffset(0)]
     public AtkUnitBase Base;
 
     [StructLayout(LayoutKind.Explicit)]
-    public struct Info {
+    public struct Info
+    {
         [FieldOffset(8)]
         public bool Available;
 
@@ -36,6 +38,7 @@ public struct SpearfishWindow {
     [FieldOffset(0x2CC)]
     public Info Fish3;
 
+
     public unsafe AtkResNode* FishLines
         => Base.UldManager.NodeList[3];
 
@@ -50,5 +53,6 @@ public struct SpearfishWindow {
 
     public unsafe AtkComponentGaugeBar* GaugeBar
         => (AtkComponentGaugeBar*)Base.UldManager.NodeList[35];
+
 
 }

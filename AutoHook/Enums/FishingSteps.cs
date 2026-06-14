@@ -1,7 +1,10 @@
+using System;
+
 namespace AutoHook.Enums;
 
 [Flags]
-public enum FishingSteps {
+public enum FishingSteps
+{
     None = 0x01,
     BeganFishing = 0x02,
     BeganMooching = 0x04,

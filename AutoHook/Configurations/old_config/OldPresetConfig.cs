@@ -1,24 +1,35 @@
-namespace AutoHook.Configurations.Legacy;
+using System.Collections.Generic;
 
-public class OldPresetConfig(string presetName) {
-    public string PresetName { get; set; } = presetName;
+namespace AutoHook.Configurations.old_config;
 
-    public List<OldHookConfig> ListOfBaits { get; set; } = [];
+public class OldPresetConfig
+{
+    public string PresetName { get; set; }
 
-    public List<OldHookConfig> ListOfMooch { get; set; } = [];
+    public List<OldHookConfig> ListOfBaits { get; set; } = new();
+    
+    public List<OldHookConfig> ListOfMooch { get; set; } = new();
 
-    public List<FishConfig> ListOfFish { get; set; } = [];
+    public List<FishConfig> ListOfFish { get; set; } = new();
 
     public AutoCastsConfig AutoCastsCfg = new();
-
+    
     public ExtraConfig ExtraCfg = new();
 
-    public void ConvertV3ToV4() {
-        foreach (var item in ListOfBaits) {
+    public OldPresetConfig(string presetName)
+    {
+        PresetName = presetName;
+    }
+    
+    public void ConvertV3ToV4()
+    {
+        foreach (var item in ListOfBaits)
+        {
             item.ConvertV3ToV4();
         }
-
-        foreach (var item in ListOfMooch) {
+        
+        foreach (var item in ListOfMooch)
+        {
             item.ConvertV3ToV4();
         }
     }

@@ -1,50 +1,80 @@
-using Dalamud.Bindings.ImGui;
-using Lumina.Excel.Sheets;
+﻿using System;
+using System.Collections.Generic;
 using System.IO;
-using System.Reflection;
+using System.Linq;
 using System.Text.Json;
+using AutoHook.Classes;
+using ImGuiNET;
+using Lumina.Excel.Sheets;
 
 namespace AutoHook.Utils;
 
-public static class GameRes {
+public static class GameRes
+{
     public const uint FishingTackleRow = 30;
     public const int AllBaitsId = -99;
     public const int AllMoochesId = -98;
 
-    public static List<BaitFishClass> Baits { get; private set; } = [];
-    public static List<BaitFishClass> Fishes { get; private set; } = [];
-    public static List<BaitFishClass> LureFishes => [.. Fishes.Where(f => f.LureMessage != "")];
-    public static List<BaitFishClass> MoochableFish { get; private set; } = [];
-    public static List<ImportedFish> ImportedFishes { get; private set; } = [];
-    public static List<ImportedFish> SpearfishFishes { get; private set; } = [];
-    public static List<uint> FishingStatuses { get; private set; } = [];
+    public static List<BaitFishClass> Baits { get; private set; } = new();
+    public static List<BaitFishClass> Fishes { get; private set; } = new();
+    public static List<BaitFishClass> LureFishes => Fishes.Where(f => f.LureMessage != "").ToList();
 
-    public static void Initialize() {
-        FishingStatuses = [.. typeof(IDs.Status).GetFields(BindingFlags.Public | BindingFlags.Static)
-            .Select(f => f.GetValue(null))
-            .OfType<uint>()
-            .Where(id => id != 0)
-            .OrderBy(id => id)];
+    public static List<ImportedFish> ImportedFishes { get; private set; } = new();
 
-        Baits = [.. FindRows<Item>(i => i.ItemSearchCategory.RowId == FishingTackleRow).ToList()
-            .Concat([.. FindRows<WKSItemInfo>(i => i.WKSItemSubCategory.RowId == 5).Select(i => i.Item.Value)])
-            .Select(b => new BaitFishClass(b))];
+    public static List<BiteTimers> BiteTimers { get; private set; } = new();
 
-        Fishes = FindRows<FishParameter>(f => f.Item.RowId is not 0 and < 1000000)
-            .Select(f => new BaitFishClass(f)).GroupBy(f => f.Id).Select(group => group.First()).ToList() ?? [];
+    public static void Initialize()
+    {
+        
+        Baits =
+            (Service.DataManager.GetExcelSheet<Item>()?
+                 .Where(i => i.ItemSearchCategory.RowId == FishingTackleRow)
+             ?? [])
+            .Concat(
+                Service.DataManager.GetExcelSheet<WKSItemInfo>()?
+                    .Where(i => i.Unknown3 == 5)
+                    .Select(i => Service.DataManager.GetExcelSheet<Item>()?.GetRow(i.Unknown0))
+                    .Where(item => item != null)
+                    .Cast<Item>()
+                ?? []
+            )
+            .Select(b => new BaitFishClass(b))
+            .ToList();
 
-        MoochableFish = FindRows<FishingBaitParameter>(x => x.Item.Value.ItemUICategory.RowId != 33).Select(f => new BaitFishClass(f.Item.RowId)).ToList() ?? [];
+        Fishes = Service.DataManager.GetExcelSheet<FishParameter>()?
+                     .Where(f => f.Item.RowId != 0 && f.Item.RowId < 1000000)
+                     .Select(f => new BaitFishClass(f))
+                     .GroupBy(f => f.Id)
+                     .Select(group => group.First())
+                     .ToList()
+                 ?? new List<BaitFishClass>();
 
-        try {
-            var fishList = Path.Combine(Svc.Interface.AssemblyLocation.DirectoryName!, $"Data\\FishData\\fish_list.json");
+        try
+        {
+            var fishList = Path.Combine(Service.PluginInterface.AssemblyLocation.DirectoryName!,
+                $"Data\\FishData\\fish_list.json");
 
-            if (File.Exists(fishList)) {
-                ImportedFishes = JsonSerializer.Deserialize<List<ImportedFish>>(File.ReadAllText(fishList))!;
+            if (File.Exists(fishList))
+            {
+                var json = File.ReadAllText(fishList);
+
+                ImportedFishes = JsonSerializer.Deserialize<List<ImportedFish>>(json)!;
+            }
+
+            var biteTimers = Path.Combine(Service.PluginInterface.AssemblyLocation.DirectoryName!,
+                $"Data\\FishData\\bitetimers.json");
+
+            if (File.Exists(biteTimers))
+            {
+                var json = File.ReadAllText(biteTimers);
+
+                BiteTimers = JsonSerializer.Deserialize<List<BiteTimers>>(json)!;
             }
         }
-        catch (Exception e) {
+        catch (Exception e)
+        {
             ImGui.SetClipboardText(e.Message);
-            Svc.Log.Error($"{e.Message}");
+            Service.PluginLog.Error($"{e.Message}");
         }
     }
 }

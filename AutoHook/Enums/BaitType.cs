@@ -1,6 +1,7 @@
 ﻿namespace AutoHook.Enums;
 
-public enum BaitType {
+public enum  BaitType
+{
     Bait,
     Mooch,
     Swimbait,

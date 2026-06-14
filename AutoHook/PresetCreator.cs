@@ -1,16 +1,27 @@
-using AutoHook.Conditions;
-using AutoHook.Conditions.Definitions;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using AutoHook.Classes;
+using AutoHook.Configurations;
+using AutoHook.Data;
+using AutoHook.Enums;
+using AutoHook.Fishing;
+using AutoHook.Resources.Localization;
 using AutoHook.Ui;
-using Dalamud.Bindings.ImGui;
+using AutoHook.Utils;
 using Dalamud.Interface.Colors;
+using Dalamud.Interface.Utility;
+using ImGuiNET;
+
 
 namespace AutoHook;
 
 // ReSharper disable LocalizableElement
-public class PresetCreator {
-
+public class PresetCreator
+{
+    
     private readonly FishingPresets Presets = Service.Configuration.HookPresets;
-
+    
     private string _newPresetName = "";
     private ImportedFish? _selectedTargetFish;
     private List<ImportedFish> _presetMoochList = [];
@@ -19,77 +30,94 @@ public class PresetCreator {
     private bool _includeIntPrep;
     private bool _fishEyes;
     private bool _createAnglersPreset;
-    private bool _sparefulHandPrep;
 
-    private void DrawHeader() {
+    private void DrawHeader()
+    {
         ImGui.PushTextWrapPos();
         ImGui.TextColored(ImGuiColors.DalamudYellow,
             "!!! Experimental Feature !!! \nThis is not optimized at the moment and its just a starting point\nJoin the discord and leave a suggestion on how to improve");
         ImGui.PopTextWrapPos();
 
         DrawUtil.TextV("Selected the target fish");
-        DrawUtil.DrawComboSelector(GameRes.ImportedFishes.Where(f => !f.IsSpearFish).ToList(), item => item.Name, _selectedTargetFish?.Name ?? UIStrings.None, SetSelectedFish);
+        DrawUtil.DrawComboSelector(
+            GameRes.ImportedFishes.Where(f => !f.IsSpearFish).ToList(),
+            item => item.Name,
+            _selectedTargetFish?.Name ?? UIStrings.None,
+            item => SetSelectedFish(item));
 
         DrawUtil.TextV("Preset Name: ");
-        ImGui.SetNextItemWidth(220.Scaled());
+        ImGui.SetNextItemWidth(220 * ImGuiHelpers.GlobalScale);
         if (ImGui.InputTextWithHint("###input", $"Auto - {_selectedTargetFish?.Name ?? "Preset Name"}",
-                ref _newPresetName, 64, ImGuiInputTextFlags.AutoSelectAll)) {
+                ref _newPresetName, 64, ImGuiInputTextFlags.AutoSelectAll))
+        {
         }
     }
 
-    private void SetSelectedFish(ImportedFish fish) {
+    private void SetSelectedFish(ImportedFish fish)
+    {
         ResetOptions();
         _selectedTargetFish = fish;
     }
-
-    private void ResetOptions() {
+    
+    private void ResetOptions()
+    {
         _newPresetName = string.Empty;
         _selectedTargetFish = null;
         _includeTimers = false;
         _includeIntPrep = false;
         _fishEyes = false;
         _createAnglersPreset = false;
-        _sparefulHandPrep = false;
-        _presetMoochList = [];
-        _presetPrepList = [];
+        _presetMoochList = new List<ImportedFish>();
+        _presetPrepList = new List<(ImportedFish, int)>();
     }
 
-    public void DrawPresetGenerator() {
-        try {
+    public void DrawPresetGenerator()
+    {
+        try
+        {
             DrawHeader();
 
             if (_selectedTargetFish == null)
                 return;
 
             DrawUtil.SpacingSeparator();
-            ImGui.TextWrapped($"Initial Bait: {MultiString.GetItemName(_selectedTargetFish.InitialBait)}");
-
-            if (_selectedTargetFish.Mooches.Count > 0) {
-                if (_presetMoochList.Count == 0) {
-                    _presetMoochList = [.. _selectedTargetFish.Mooches
-                        .Select(mooch => GameRes.ImportedFishes.FirstOrDefault(f => f.ItemId == mooch)).OfType<ImportedFish>()];
+            ImGui.TextWrapped(
+                $"Initial Bait: {MultiString.GetItemName(_selectedTargetFish.InitialBait)}");
+            
+            if (_selectedTargetFish.Mooches.Count > 0)
+            {
+                if (_presetMoochList.Count == 0)
+                {
+                    _presetMoochList = _selectedTargetFish.Mooches
+                        .Select(mooch => GameRes.ImportedFishes.FirstOrDefault(f => f.ItemId == mooch)).OfType<ImportedFish>()
+                        .ToList();
                 }
-
-                DrawUtil.TextV($"Mooch order: {string.Join(" > ", _presetMoochList.Select(fish => $"{fish.Name} {GetBiteType(fish.BiteType)}"))}");
+                
+                DrawUtil.TextV(
+                    $"Mooch order: {string.Join(" > ", _presetMoochList.Select(fish => $"{fish.Name} {GetBiteType(fish.BiteType)}"))}");
             }
 
             DrawUtil.Checkbox("Include fish hooking timers", ref _includeTimers,
                 "The values are based on the info available on TeamCraft and are not 100% accurate");
 
-            if (_selectedTargetFish.Predators.Count > 0) {
+            if (_selectedTargetFish.Predators.Count > 0)
+            {
                 DrawUtil.Checkbox("Include intuition preparation in the same preset > READ", ref _includeIntPrep,
                     "Even more experimental, works well with 1 fish requirement but 2 or more idk about that (will be improved)");
-
-                if (_presetPrepList.Count == 0) {
-                    foreach (var predator in _selectedTargetFish.Predators) {
-                        var fish = GameRes.ImportedFishes.FirstOrDefault(f => f.ItemId == predator.ItemId);
+                
+                if (_presetPrepList.Count == 0)
+                {
+                    foreach (var predator in _selectedTargetFish.Predators)
+                    {
+                        var fish = GameRes.ImportedFishes.FirstOrDefault(f => f.ItemId == predator.itemId);
 
                         if (fish != null)
-                            _presetPrepList.Add((fish, predator.Quantity));
+                            _presetPrepList.Add((fish, predator.qtd));
                     }
                 }
-
-                if (_includeIntPrep) {
+                
+                if (_includeIntPrep)
+                {
                     DrawUtil.TextV($"Intuition Prep:\n{string.Join("\n", _presetPrepList.Select(fish
                         => $"{fish.Item2}x {fish.Item1.Name} {GetBiteType(fish.Item1.BiteType)} ({MultiString.GetItemName(fish.Item1.InitialBait)})"))}");
                 }
@@ -98,11 +126,13 @@ public class PresetCreator {
             DrawUtil.Checkbox("Setup Auto Casting for Fish Eyes", ref _fishEyes,
                 "This is a simple setup, useful for catching old expansions big fishes");
 
-            if (_fishEyes) {
+            if (_fishEyes)
+            {
                 ImGui.Indent();
                 ImGui.PushTextWrapPos();
 
-                if (_presetMoochList.Count > 0) {
+                if (_presetMoochList.Count > 0)
+                {
                     ImGui.TextColored(ImGuiColors.DalamudYellow,
                         "Since this fish requires mooching, its recommended to start with 10 Anglers Art for Makeshift Bait.");
 
@@ -114,20 +144,19 @@ public class PresetCreator {
                 ImGui.Unindent();
             }
 
-            if (GameRes.MoochableFish.Any(f => f.Id == _selectedTargetFish.ItemId))
-                DrawUtil.Checkbox("Create Spareful Hand Prep preset", ref _sparefulHandPrep,
-                    "Generates a preset that catches 3 fish, stores them to swimbait, catches a 4th fish, and stops");
-
-            if (ImGui.Button("Create Preset and Close")) {
+            if (ImGui.Button("Create Preset and Close"))
+            {
                 GeneratePreset(_presetMoochList, _presetPrepList);
             }
         }
-        catch (Exception e) {
-            Svc.Log.Error(e.Message);
+        catch (Exception e)
+        {
+            Service.PluginLog.Error(e.Message);
         }
     }
 
-    private void GeneratePreset(List<ImportedFish> moochList, List<(ImportedFish, int)> prepList) {
+    private void GeneratePreset(List<ImportedFish> moochList, List<(ImportedFish, int)> prepList)
+    {
         if (_selectedTargetFish == null)
             return;
 
@@ -143,52 +172,49 @@ public class PresetCreator {
         newPreset.ExtraCfg.Enabled = true;
         newPreset.ExtraCfg.ForceBaitSwap = true;
         newPreset.ExtraCfg.ForcedBaitId = _selectedTargetFish!.InitialBait;
-
+        
         if (_includeIntPrep)
             SetupIntPrep(newPreset, prepList);
-
+        
         if (_fishEyes)
             SetupFishEyes(newPreset);
-        else {
-            ref var ac = ref newPreset.AutoCastsCfg;
+        else
+        {
+            ref var ac = ref newPreset.AutoCastsCfg ;
             ac.EnableAll = true;
             ac.CastLine.Enabled = true;
             ac.CastCordial.Enabled = true;
             ac.CastCollect.Enabled = true;
 
-            if (moochList.Count > 0) {
+            if (moochList.Count > 0)
+            {
                 ac.CastPatience.Enabled = true;
                 newPreset.AutoCastsCfg.CastMakeShiftBait.Enabled = true;
             }
-            else {
+            else
+            {
                 ac.CastPrizeCatch.Enabled = true;
                 ac.CastThaliaksFavor.Enabled = true;
             }
         }
 
-        if (_sparefulHandPrep)
-            SetupSparefulHandPrep(newPreset);
-        else
-            newPreset.AddItem(new FishConfig(_selectedTargetFish.ItemId));
-
-        if (_createAnglersPreset) {
+        newPreset.AddItem(new FishConfig(_selectedTargetFish.ItemId));
+        
+        if (_createAnglersPreset)
+        {
             var anglers = CreateAnglerPreset();
-            anglers.ExtraCfg.Enabled = true;
-            anglers.ExtraCfg.Triggers.Add(new ExtraTrigger {
-                Enabled = true,
-                ConditionSet = Configuration.ConditionSetBuilder.SingleStatusStacks(IDs.Status.AnglersArt, 10),
-                SwapPreset = true,
-                PresetToSwap = newPreset.PresetName,
-                SwapBait = true,
-                BaitToSwap = new BaitFishClass(newPreset.ExtraCfg.ForcedBaitId),
-                StopAction = ExtraStopAction.None,
-            });
+            anglers.ExtraCfg.AnglerStackQtd = 10;
+            anglers.ExtraCfg.SwapBaitAnglersArt = true;
+            anglers.ExtraCfg.BaitToSwapAnglersArt = new BaitFishClass(newPreset.ExtraCfg.ForcedBaitId);
+            anglers.ExtraCfg.SwapPresetAnglersArt = true;
+            anglers.ExtraCfg.PresetToSwapAnglersArt = newPreset.PresetName;
+            
             Presets.CustomPresets.Add(anglers);
         }
-
+        
         Service.Save();
         Presets.CustomPresets.Add(newPreset);
-
+        
         ResetOptions();
 
         Service.Save();
@@ -196,19 +222,21 @@ public class PresetCreator {
         TabFishingPresets.OpenPresetGen = false;
     }
 
-    private void SetupFishEyes(CustomPresetConfig newPreset) {
+    private void SetupFishEyes(CustomPresetConfig newPreset)
+    {
         if (_selectedTargetFish == null)
             return;
-
+        
         newPreset.AutoCastsCfg.EnableAll = true;
         newPreset.AutoCastsCfg.CastLine.Enabled = true;
-        newPreset.AutoCastsCfg.CastLine.ConditionSet = Configuration.ConditionSetBuilder.SingleStatus(IDs.Status.FishEyes);
+        newPreset.AutoCastsCfg.CastLine.OnlyCastWithFishEyes = true;
         newPreset.AutoCastsCfg.CastCordial.Enabled = true;
         newPreset.AutoCastsCfg.CastFishEyes.Enabled = true;
         newPreset.AutoCastsCfg.CastFishEyes.IgnoreMooch = true;
 
-        if (_selectedTargetFish!.Mooches.Count > 0) {
-            newPreset.AutoCastsCfg.CastFishEyes.ConditionSet = Configuration.ConditionSetBuilder.SingleStatus(IDs.Status.MakeshiftBait);
+        if (_selectedTargetFish!.Mooches.Count > 0)
+        {
+            newPreset.AutoCastsCfg.CastFishEyes.OnlyWhenMakeShiftUp = true;
             newPreset.AutoCastsCfg.CastPatience.Enabled = true;
             newPreset.AutoCastsCfg.CastPatience.Id = IDs.Actions.Patience;
             newPreset.AutoCastsCfg.CastPatience.GpThreshold = 770;
@@ -216,28 +244,31 @@ public class PresetCreator {
         }
     }
 
-    private void SetupIntPrep(CustomPresetConfig newPreset, List<(ImportedFish, int)> prepList) {
-        foreach (var fishPrep in prepList) {
+    private void SetupIntPrep(CustomPresetConfig newPreset, List<(ImportedFish, int)> prepList)
+    {
+        foreach (var fishPrep in prepList)
+        {
             var fish = fishPrep.Item1;
             var mooches = fish.Mooches
                 .Select(mooch => GameRes.ImportedFishes.FirstOrDefault(f => f.ItemId == mooch)).OfType<ImportedFish>()
                 .ToList();
 
             SetupBaitAndMooch(newPreset, fish.InitialBait, fish, mooches);
-            var fishConfig = new FishConfig(fishPrep.Item1.ItemId) {
-                IgnoreConditionSet = Configuration.ConditionSetBuilder.SingleFlag<IntuitionActiveCD>()
-            };
-
+            var fishConfig = new FishConfig(fishPrep.Item1.ItemId);
+            fishConfig.IgnoreOnIntuition = true;
+            
             newPreset.ExtraCfg.ForcedBaitId = fish.InitialBait;
             newPreset.AddItem(fishConfig);
         }
     }
 
     private void SetupBaitAndMooch(CustomPresetConfig newPreset, int bait, ImportedFish fishTarget, List<ImportedFish>? moochList,
-        bool isIntuition = false) {
+        bool isIntuition = false)
+    {
         var initBaitCfg = newPreset.ListOfBaits.FirstOrDefault(f => f.BaitFish.Id == bait);
 
-        if (initBaitCfg == null) {
+        if (initBaitCfg == null)
+        {
             initBaitCfg = new HookConfig(bait);
             initBaitCfg.ResetAllHooksets();
         }
@@ -246,22 +277,26 @@ public class PresetCreator {
             initBaitCfg.IntuitionHook.UseCustomStatusHook = true;
 
         // if theres no mooch, set the bait to hook the Tug from the target fish
-        if (moochList == null || moochList.Count == 0) {
+        if (moochList == null || moochList.Count == 0)
+        {
             initBaitCfg.SetBiteAndHookType(fishTarget.BiteType, fishTarget!.HookType, isIntuition);
 
-            if (fishTarget.IsLureFish) {
+            if (fishTarget.IsLureFish)
+            {
                 ref var cl = ref initBaitCfg.NormalHook.CastLures;
                 cl.Enabled = true;
                 cl.CancelAttempt = true;
                 cl.LureTarget = LureTarget.Special;
-                cl.ConditionSet = Configuration.ConditionSetBuilder.SingleStatus(IDs.Status.PrizeCatch);
-                cl.Id = fishTarget!.HookType == HookType.Powerful
-                    ? IDs.Actions.AmbitiousLure
+                cl.OnlyCastLarge = true;
+                cl.Id = fishTarget!.HookType == HookType.Powerful 
+                    ? IDs.Actions.AmbitiousLure  
                     : IDs.Actions.ModestLure;
+                
             }
-
-            if (_includeTimers) {
-                initBaitCfg.SetHooksetTimer(fishTarget.BiteType, fishTarget.BiteTimeMin, fishTarget.BiteTimeMax, isIntuition);
+            if (_includeTimers)
+            {
+                var timer = GameRes.BiteTimers.FirstOrDefault(b => b.itemId == fishTarget.ItemId) ?? new BiteTimers();
+                initBaitCfg.SetHooksetTimer(fishTarget.BiteType, timer.min, timer.max, isIntuition);
             }
 
             newPreset.ReplaceBaitConfig(initBaitCfg);
@@ -271,11 +306,13 @@ public class PresetCreator {
         // the list is going backwards to make it easier
         moochList.Reverse();
 
-        foreach (var mooch in moochList) {
+        foreach (var mooch in moochList)
+        {
             // check if the mooch is already included in the list
             var newMooch = newPreset.ListOfMooch.FirstOrDefault(f => f.BaitFish.Id == mooch.ItemId);
 
-            if (newMooch == null) {
+            if (newMooch == null)
+            {
                 newMooch = new HookConfig(mooch.ItemId);
                 newMooch.ResetAllHooksets();
             }
@@ -305,18 +342,23 @@ public class PresetCreator {
             // REMEMBER YOU FUCK, THE NEXT FISH IS THE PREVIOUS ONE IN THE LIST
             newMooch.SetBiteAndHookType(nextFish.BiteType, nextFish.HookType, isIntuition);
 
-            if (_includeTimers) {
-                newMooch.SetHooksetTimer(nextFish.BiteType, nextFish.BiteTimeMin, nextFish.BiteTimeMax, isIntuition);
+            if (_includeTimers)
+            {
+                var timer = GameRes.BiteTimers.FirstOrDefault(b => b.itemId == nextFish.ItemId) ?? new BiteTimers();
+                newMooch.SetHooksetTimer(nextFish.BiteType, timer.min, timer.max, isIntuition);
             }
 
             newPreset.ReplaceMoochConfig(newMooch);
 
             // the last fish in the list is the first one being hooked
-            if (mooch == moochList.Last()) {
+            if (mooch == moochList.Last())
+            {
                 // that means we need to set up the bait to the this fish bite.
                 initBaitCfg.SetBiteAndHookType(mooch.BiteType, mooch.HookType, isIntuition);
-                if (_includeTimers) {
-                    initBaitCfg.SetHooksetTimer(mooch.BiteType, mooch.BiteTimeMin, mooch.BiteTimeMax, isIntuition);
+                if (_includeTimers)
+                {
+                    var timer = GameRes.BiteTimers.FirstOrDefault(b => b.itemId == mooch.ItemId) ?? new BiteTimers();
+                    initBaitCfg.SetHooksetTimer(mooch.BiteType, timer.min, timer.max, isIntuition);
                 }
 
                 newPreset.ReplaceBaitConfig(initBaitCfg);
@@ -324,15 +366,17 @@ public class PresetCreator {
         }
     }
 
-    private CustomPresetConfig CreateAnglerPreset() {
+
+    private CustomPresetConfig CreateAnglerPreset()
+    {
         CustomPresetConfig anglers = new($"Auto -  StackAngler {DateTime.Now}");
 
         var bait = new HookConfig(29717); // versatile lure
-
+        
         anglers.ExtraCfg.Enabled = true;
         anglers.ExtraCfg.ForceBaitSwap = true;
         anglers.ExtraCfg.ForcedBaitId = 29717;
-
+        
         anglers.AutoCastsCfg.EnableAll = true;
         anglers.AutoCastsCfg.CastLine.Enabled = true;
         anglers.AutoCastsCfg.CastPatience.Enabled = true;
@@ -344,52 +388,36 @@ public class PresetCreator {
         return anglers;
     }
 
+    private CustomPresetConfig CreateAnglerPresetTest()
+    {
+        CustomPresetConfig anglers = new($"Auto - 600gp StackAngler {DateTime.Now}");
+
+        var bait = new HookConfig(29717); // versatile lure
+        bait.NormalHook.UseDoubleHook = true;
+        bait.NormalHook.UseTripleHook = true;
+
+        anglers.ExtraCfg.Enabled = true;
+        anglers.ExtraCfg.ForceBaitSwap = true;
+        anglers.ExtraCfg.ForcedBaitId = 29717;
+
+        anglers.AutoCastsCfg.EnableAll = true;
+        anglers.AutoCastsCfg.CastCordial.Enabled = true;
+        anglers.AutoCastsCfg.CastPrizeCatch.Enabled = true;
+        anglers.AutoCastsCfg.CastPrizeCatch.GpThreshold = 600;
+        anglers.AutoCastsCfg.CastLine.Enabled = true;
+        anglers.AutoCastsCfg.DontCancelMooch = false;
+        
+        anglers.AddItem(bait);
+
+        return anglers;
+    }
+
     private static string GetBiteType(BiteType bite)
-        => bite switch {
+        => bite switch
+        {
             BiteType.Weak => "(!)",
             BiteType.Strong => "(!!)",
             BiteType.Legendary => "(!!!)",
             _ => "Error",
         };
-
-    private void SetupSparefulHandPrep(CustomPresetConfig newPreset) {
-        if (_selectedTargetFish == null)
-            return;
-
-        var initBaitCfg = newPreset.ListOfBaits.FirstOrDefault(f => f.BaitFish.Id == _selectedTargetFish.InitialBait);
-
-        if (initBaitCfg == null) {
-            initBaitCfg = new HookConfig(_selectedTargetFish.InitialBait);
-            initBaitCfg.ResetAllHooksets();
-        }
-
-        initBaitCfg.SetBiteAndHookType(_selectedTargetFish.BiteType, _selectedTargetFish.HookType, false);
-
-        if (_includeTimers) {
-            initBaitCfg.SetHooksetTimer(_selectedTargetFish.BiteType, _selectedTargetFish.BiteTimeMin, _selectedTargetFish.BiteTimeMax, false);
-        }
-
-        newPreset.ReplaceBaitConfig(initBaitCfg);
-
-        ref var ac = ref newPreset.AutoCastsCfg;
-        ac.EnableAll = true;
-        ac.CastLine.Enabled = true;
-        ac.CastCordial.Enabled = true;
-        ac.CastCollect.Enabled = true;
-
-        var fishConfig = new FishConfig(_selectedTargetFish.ItemId);
-
-        fishConfig.SparefulHand.Enabled = true;
-        fishConfig.SparefulHand.FishIdToCheck = (uint)_selectedTargetFish.ItemId;
-        fishConfig.SparefulHand.ConditionSet = Configuration.ConditionSetBuilder.SwimbaitCount(3, "<", _selectedTargetFish.ItemId) is { } cond
-            ? new ConditionSet {
-                CombineMode = ConditionCombineMode.All,
-                Groups = [new ConditionGroup { CombineMode = ConditionCombineMode.All, Conditions = [cond] }],
-            }
-            : null;
-
-        fishConfig.StopAfterCaughtLimit.Value = (true, 4);
-
-        newPreset.AddItem(fishConfig);
-    }
 }

@@ -1,32 +1,40 @@
+using AutoHook.Data;
+using AutoHook.Resources.Localization;
+using AutoHook.Utils;
 using FFXIVClientStructs.FFXIV.Client.Game;
 
 namespace AutoHook.Classes.AutoCasts;
 
-public sealed class AutoMooch : BaseActionCast {
+public class AutoMooch : BaseActionCast
+{
     public AutoMooch2 Mooch2 = new();
+
+    public bool OnlyMoochIntuition = false;
 
     public override bool RequiresTimeWindow() => true;
 
-    public AutoMooch() : base(IDs.Actions.Mooch, ActionType.Action) { }
+    public AutoMooch() : base(UIStrings.AutoMooch, Data.IDs.Actions.Mooch, ActionType.Action)
+    {
+        HelpText = UIStrings.AutoMooch_HelpText;
+    }
 
-    [NonSerialized] public bool UseAlwaysMoochLabel;
-    [NonSerialized] public bool SuppressHelpText;
+    public override string GetName()
+        => Name = UIStrings.AutoMooch;
 
-    public override string GetName() => UseAlwaysMoochLabel ? UIStrings.Always_Mooch : UIStrings.AutoMooch;
-
-    public override string GetHelpText() => SuppressHelpText ? string.Empty : UIStrings.AutoMooch_HelpText;
-
-    public override bool CastCondition() {
-        if (!EvaluateConditionSet())
+    public override bool CastCondition()
+    {
+        if (OnlyMoochIntuition && !PlayerRes.HasStatus(IDs.Status.FishersIntuition))
             return false;
 
-        if (Mooch2.IsAvailableToCast()) {
+        if (Mooch2.IsAvailableToCast())
+        {
             Service.PrintDebug(@$"Mooch2 Available, casting mooch2");
             Id = IDs.Actions.Mooch2;
             return true;
         }
 
-        if (Service.WorldState.ActionAvailable(IDs.Actions.Mooch)) {
+        if (PlayerRes.ActionTypeAvailable(IDs.Actions.Mooch))
+        {
             Service.PrintDebug(@$"Mooch Available, casting normal mooch");
             Id = IDs.Actions.Mooch;
             return true;
@@ -35,9 +43,14 @@ public sealed class AutoMooch : BaseActionCast {
         return false;
     }
 
-    protected override DrawOptionsDelegate DrawOptions => () => {
+    protected override DrawOptionsDelegate DrawOptions => () =>
+    {
         Mooch2.DrawConfig(null);
-        DrawAutoCastConditions();
+        if (DrawUtil.Checkbox(UIStrings.TabAutoCasts_DrawExtraOptionsAutoMooch_Extra_Only_Active,
+                ref OnlyMoochIntuition))
+        {
+            Service.Save();
+        }
     };
 
     public override int Priority { get; set; } = 10;

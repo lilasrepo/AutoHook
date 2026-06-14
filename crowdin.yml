@@ -1,3 +1,0 @@
-files:
-  - source: /AutoHook/Resources/Localization/UIStrings.resx
-    translation: /AutoHook//Resources/Localization/UIStrings.%two_letters_code%.resx

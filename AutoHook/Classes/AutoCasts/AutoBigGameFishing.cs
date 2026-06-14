@@ -1,30 +1,51 @@
+﻿using System;
+using AutoHook.Data;
+using AutoHook.Resources.Localization;
+using AutoHook.Utils;
+using FFXIVClientStructs.FFXIV.Client.Game;
+
 namespace AutoHook.Classes.AutoCasts;
 
-public sealed class AutoBigGameFishing : BaseActionCast {
+public class AutoBigGameFishing : BaseActionCast
+{
     public int AnglersStacks = 2;
 
-    public AutoBigGameFishing() : base(IDs.Actions.BigGameFishing) { }
+    public bool WithIdenticalC = false;
+    public bool WithSlap = false;
 
-    public override string GetName() => UIStrings.BigGameFishing;
-
-    public override bool CastCondition() {
-        if (!EvaluateConditionSet())
-            return false;
-
-        if (Service.WorldState.HasStatus(IDs.Status.BigGameFishing))
-            return false;
-
-        return Service.WorldState.HasAnglersArtStacks(AnglersStacks);
+    public AutoBigGameFishing() : base(UIStrings.BigGameFishing, IDs.Actions.BigGameFishing)
+    {
     }
 
-    protected override DrawOptionsDelegate DrawOptions => () => {
+    public override string GetName()
+        => Name = UIStrings.BigGameFishing;
+
+    public override bool CastCondition()
+    {
+        if (PlayerRes.HasStatus(IDs.Status.BigGameFishing))
+            return false;
+
+        var slapOrIc = true;
+        if (WithIdenticalC || WithSlap)
+            slapOrIc = WithIdenticalC && PlayerRes.HasStatus(IDs.Status.IdenticalCast) ||
+                       WithSlap && PlayerRes.HasStatus(IDs.Status.SurfaceSlap);
+
+        bool hasStacks = PlayerRes.HasAnglersArtStacks(AnglersStacks);
+
+        return hasStacks && slapOrIc;
+    }
+
+    protected override DrawOptionsDelegate DrawOptions => () =>
+    {
         var stack = AnglersStacks;
-        if (DrawUtil.EditNumberField(UIStrings.TabAutoCasts_DrawExtraOptionsThaliaksFavor_, ref stack, "", 1)) {
+        if (DrawUtil.EditNumberField(UIStrings.TabAutoCasts_DrawExtraOptionsThaliaksFavor_, ref stack, "", 1))
+        {
             AnglersStacks = Math.Max(2, Math.Min(stack, 10));
             Service.Save();
         }
 
-        DrawAutoCastConditions();
+        DrawUtil.Checkbox(UIStrings.UseIcActive, ref WithIdenticalC);
+        DrawUtil.Checkbox(UIStrings.UseSlapActive, ref WithSlap);
     };
 
     public override int Priority { get; set; } = 18;
