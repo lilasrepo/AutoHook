@@ -1,18 +1,10 @@
 ﻿using Dalamud.Configuration;
 using Newtonsoft.Json;
-using System;
-using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO.Compression;
 using System.IO;
-using System.Linq;
-using System.Text;
-using AutoHook.Classes;
 using AutoHook.Configurations.old_config;
-using AutoHook.Fishing;
-using AutoHook.Resources.Localization;
 using AutoHook.Spearfishing;
-using AutoHook.Utils;
 
 namespace AutoHook.Configurations;
 
@@ -55,12 +47,14 @@ public class Configuration : IPluginConfiguration
 
     [DefaultValue(true)] public bool ResetAfkTimer = true;
 
+    [DefaultValue(false)] public bool AutoStartFishing = false;
+
     // old config
-    public List<BaitPresetConfig> BaitPresetList = new();
+    public List<BaitPresetConfig> BaitPresetList = [];
 
     public void Save()
     {
-        Service.PluginInterface!.SavePluginConfig(this);
+        Svc.PluginInterface!.SavePluginConfig(this);
     }
 
     public void UpdateVersion()
@@ -150,7 +144,7 @@ public class Configuration : IPluginConfiguration
     {
         try
         {
-            if (Service.PluginInterface.GetPluginConfig() is Configuration config)
+            if (Svc.PluginInterface.GetPluginConfig() is Configuration config)
             {
                 config.Initiate();
                 config.UpdateVersion();
@@ -165,7 +159,7 @@ public class Configuration : IPluginConfiguration
         }
         catch (Exception e)
         {
-            Service.PluginLog.Error(@$"[Configuration] {e.Message}");
+            Svc.Log.Error(@$"[Configuration] {e.Message}");
             throw;
         }
     }
@@ -195,15 +189,10 @@ public class Configuration : IPluginConfiguration
         return "Something went wrong while exporting the preset";
     }
 
-    public class FolderExport
+    public class FolderExport(string name)
     {
-        public string FolderName { get; set; }
-        public List<CustomPresetConfig> Presets { get; set; } = new();
-
-        public FolderExport(string name)
-        {
-            FolderName = name;
-        }
+        public string FolderName { get; set; } = name;
+        public List<CustomPresetConfig> Presets { get; set; } = [];
     }
 
     public static string ExportFolder(PresetFolder folder, List<CustomPresetConfig> presets)
@@ -251,7 +240,7 @@ public class Configuration : IPluginConfiguration
         }
         catch (Exception e)
         {
-            Service.PluginLog.Error($"Failed to import folder: {e.Message}");
+            Svc.Log.Error($"Failed to import folder: {e.Message}");
             return null;
         }
     }
@@ -292,8 +281,8 @@ public class Configuration : IPluginConfiguration
     [NonSerialized] private const string ExportPrefixSf = "AHSF1_";
     [NonSerialized] private const string ExportPrefixFolder = "AHFOLDER_";
 
-
-    [NonSerialized] private static readonly List<string> ExportPrefixes =
+    [NonSerialized]
+    private static readonly List<string> ExportPrefixes =
     [
         ExportPrefixV2, ExportPrefixV3, ExportPrefixV4, ExportPrefixSf, ExportPrefixFolder
     ];
@@ -323,7 +312,7 @@ public class Configuration : IPluginConfiguration
         using (var ms = new MemoryStream(data))
         {
             using var gzip = new GZipStream(ms, CompressionMode.Decompress);
-            gzip.Read(buffer, 0, uncompressedSize);
+            gzip.ReadExactly(buffer, 0, uncompressedSize);
         }
 
         return Encoding.UTF8.GetString(buffer);
@@ -343,7 +332,7 @@ public class Configuration : IPluginConfiguration
         }
         catch (Exception e)
         {
-            Service.PluginLog.Error(@$"Failed to DecompressBase64: {e.Message}");
+            Svc.Log.Error(@$"Failed to DecompressBase64: {e.Message}");
             return "";
         }
     }
@@ -374,9 +363,11 @@ public class Configuration : IPluginConfiguration
             }
         }
 
-        CustomPresetConfig newPreset = new(@$"[Old Version] {preset.PresetName}");
-        newPreset.ListOfBaits = filteredBaits;
-        newPreset.ListOfMooch = filteredMooch;
+        CustomPresetConfig newPreset = new(@$"[Old Version] {preset.PresetName}")
+        {
+            ListOfBaits = filteredBaits,
+            ListOfMooch = filteredMooch
+        };
         return newPreset;
     }
 
@@ -392,11 +383,12 @@ public class Configuration : IPluginConfiguration
         {
             bait.ConvertV3ToV4();
 
-            var newBait = new HookConfig(bait.BaitFish);
-
-            newBait.Enabled = bait.Enabled;
-            newBait.NormalHook = bait.NormalHook;
-            newBait.IntuitionHook = bait.IntuitionHook;
+            var newBait = new HookConfig(bait.BaitFish)
+            {
+                Enabled = bait.Enabled,
+                NormalHook = bait.NormalHook,
+                IntuitionHook = bait.IntuitionHook
+            };
             newBait.IntuitionHook.UseCustomStatusHook = bait.UseCustomIntuitionHook;
 
             newPreset.AddItem(newBait);
@@ -405,11 +397,12 @@ public class Configuration : IPluginConfiguration
         foreach (var mooch in old.ListOfMooch)
         {
             mooch.ConvertV3ToV4();
-            var newMooch = new HookConfig(mooch.BaitFish);
-
-            newMooch.Enabled = mooch.Enabled;
-            newMooch.NormalHook = mooch.NormalHook;
-            newMooch.IntuitionHook = mooch.IntuitionHook;
+            var newMooch = new HookConfig(mooch.BaitFish)
+            {
+                Enabled = mooch.Enabled,
+                NormalHook = mooch.NormalHook,
+                IntuitionHook = mooch.IntuitionHook
+            };
             newMooch.IntuitionHook.UseCustomStatusHook = mooch.UseCustomIntuitionHook;
 
             newPreset.AddItem(newMooch);

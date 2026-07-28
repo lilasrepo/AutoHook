@@ -1,18 +1,8 @@
-using System;
-using System.Diagnostics;
-using System.Linq;
-using AutoHook.Classes;
-using AutoHook.Configurations;
-using AutoHook.Data;
-using AutoHook.Enums;
-using AutoHook.Resources.Localization;
-using AutoHook.SeFunctions;
-using AutoHook.Utils;
-using Dalamud.Hooking;
+﻿using Dalamud.Hooking;
 using Dalamud.Plugin.Services;
 using ECommons.Throttlers;
 using FFXIVClientStructs.FFXIV.Client.Game;
-
+using System.Diagnostics;
 
 namespace AutoHook.Fishing;
 
@@ -53,12 +43,12 @@ public partial class FishingManager : IDisposable
         try
         {
             Service.TaskManager.EnqueueDelay(200);
-            Service.TaskManager.Enqueue(() => CreateDalamudHooks());
+            Service.TaskManager.Enqueue(CreateDalamudHooks);
             //CreateDalamudHooks();
         }
         catch (Exception e)
         {
-            Service.PluginLog.Error(@$"{e.Message}");
+            Svc.Log.Error(@$"{e.Message}");
         }
     }
 
@@ -71,34 +61,27 @@ public partial class FishingManager : IDisposable
 
     public unsafe void CreateDalamudHooks()
     {
-        // C-fix(7.3): AutoHook upstream last touched this at ea93415 "7.1 Update" (2024-11-16) and still
-        // ships the 7.1 prologue at HEAD, i.e. it has no 7.3 value of its own. But this is the SAME game
-        // function GatherBuddyReborn hooks -- the old sig strings were byte-identical and UpdateCatchDelegate
-        // has the same 12-parameter shape in both plugins -- and GBR's copy of the 7.1 value threw
-        // KeyNotFoundException on TC game v7.20 (runtime-observed 2026-07-28), proving that prologue is gone.
-        // So the value below is transplanted from GatherBuddyReborn aa8e2d83 "Initial update for 7.3"
-        // (2025-08-07), which is also its last pre-7.4 value. Keep the two in sync.
-        UpdateCatch = Service.GameInteropProvider.HookFromSignature<UpdateCatchDelegate>(
-            @"48 89 6C 24 ?? 56 41 56 41 57 48 81 EC ?? ?? ?? ?? 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 84 24 ?? ?? ?? ?? 48 8B 01",
+        UpdateCatch = Svc.Hook.HookFromSignature<UpdateCatchDelegate>(
+            SignaturePatterns.UpdateCatch,
             UpdateCatchDetour);
         var hookPtr = (IntPtr)ActionManager.MemberFunctionPointers.UseAction;
-        _useActionHook = Service.GameInteropProvider.HookFromAddress<UseActionDelegate>(hookPtr, OnUseAction);
+        _useActionHook = Svc.Hook.HookFromAddress<UseActionDelegate>(hookPtr, OnUseAction);
 
         Enable();
     }
 
     private void Enable()
     {
-        Service.Framework.Update += OnFrameworkUpdate;
-        Service.Chat.CheckMessageHandled += OnMessageDelegate;
+        Svc.Framework.Update += OnFrameworkUpdate;
+        Svc.Chat.CheckMessageHandled += OnMessageDelegate;
         UpdateCatch?.Enable();
         _useActionHook?.Enable();
     }
 
     private void Disable()
     {
-        Service.Framework.Update -= OnFrameworkUpdate;
-        Service.Chat.CheckMessageHandled -= OnMessageDelegate;
+        Svc.Framework.Update -= OnFrameworkUpdate;
+        Svc.Chat.CheckMessageHandled -= OnMessageDelegate;
         _useActionHook?.Disable();
         UpdateCatch?.Disable();
     }
@@ -127,17 +110,6 @@ public partial class FishingManager : IDisposable
         _lastStep = FishingSteps.StartedCasting;
         UseAutoCasts();
         //Service.TaskManager.Enqueue(() => UseAutoCasts());
-    }
-
-    private int GetCurrentBaitMoochId()
-    {
-        if (Service.BaitManager.CurrentSwimBait is { } fishId)
-            return (int)fishId;
-
-        if (_isMooching)
-            return _lastCatch?.Id ?? 0;
-
-        return (int)Service.BaitManager.Current;
     }
 
     // The current config is updates two times: When we began fishing (to get the config based on the mooch/bait) and when we hooked the fish (in case the user updated their configs).
@@ -179,16 +151,21 @@ public partial class FishingManager : IDisposable
 
     public string GetPresetName()
     {
-        var customHook = Presets.SelectedPreset?.GetCfgById(GetCurrentBaitMoochId(), _isMooching);
+        var isMooching = Service.BaitManager.IsMooching() || _isMooching;
+        var currentBaitId = Service.BaitManager.GetCurrentBaitMoochId(_lastCatch?.Id, _isMooching);
 
-        var globalHook = _isMooching
+        HookConfig? customHook = null;
+        if (Presets.SelectedPreset != null)
+            customHook = Presets.SelectedPreset.GetCfgById(currentBaitId, isMooching);
+
+        var globalHook = isMooching
             ? Presets.DefaultPreset.ListOfMooch.FirstOrDefault()
             : Presets.DefaultPreset.ListOfBaits.FirstOrDefault();
 
         var presetName = customHook?.Enabled ?? false
             ? @$"{customHook.BaitFish.Name} ({Presets.SelectedPreset?.PresetName})"
             : globalHook?.Enabled ?? false
-                ? @$"{(_isMooching ? UIStrings.All_Mooches : UIStrings.All_Baits)} ({Presets.DefaultPreset.PresetName})"
+                ? @$"{(isMooching ? UIStrings.All_Mooches : UIStrings.All_Baits)} ({Presets.DefaultPreset.PresetName})"
                 : @"None";
 
         return presetName;
@@ -196,9 +173,14 @@ public partial class FishingManager : IDisposable
 
     public HookConfig GetHookCfg()
     {
-        var custom = Presets.SelectedPreset?.GetCfgById(GetCurrentBaitMoochId(), _isMooching);
-        
-        var defaultHook = _isMooching
+        var isMooching = Service.BaitManager.IsMooching() || _isMooching;
+        var currentBaitId = Service.BaitManager.GetCurrentBaitMoochId(_lastCatch?.Id, _isMooching);
+
+        HookConfig? custom = null;
+        if (Presets.SelectedPreset != null)
+            custom = Presets.SelectedPreset.GetCfgById(currentBaitId, isMooching);
+
+        var defaultHook = isMooching
             ? Presets.DefaultPreset.ListOfMooch.FirstOrDefault()
             : Presets.DefaultPreset.ListOfBaits.FirstOrDefault();
 
@@ -211,8 +193,22 @@ public partial class FishingManager : IDisposable
     {
         var currentState = Service.BaitManager.FishingState;
 
-        if (!Service.Configuration.PluginEnabled || currentState == FishingState.NotFishing)
+        if (!Service.Configuration.PluginEnabled)
             return;
+
+        if (currentState == FishingState.NotFishing)
+        {
+            if (Service.Configuration.AutoStartFishing && 
+                EzThrottler.Throttle("AutoStartFishing", 1000))
+            {
+                var autoCastCfg = GetAutoCastCfg();
+                if (autoCastCfg.EnableAll && autoCastCfg.CastLine.IsAvailableToCast() && PlayerRes.IsCastAvailable())
+                {
+                    StartFishing();
+                }
+            }
+            return;
+        }
 
         if (currentState != FishingState.Quit && _lastStep.HasFlag(FishingSteps.Quitting))
         {
@@ -228,7 +224,7 @@ public partial class FishingManager : IDisposable
         if (!_lastStep.HasFlag(FishingSteps.Quitting) && currentState == FishingState.PoleReady)
             CheckPluginActions();
 
-        if (currentState == FishingState.NormalFishing || currentState == FishingState.LureFishing)
+        if (currentState is FishingState.NormalFishing or FishingState.LureFishing)
         {
             CheckWhileFishingActions();
             CheckTimeout();
@@ -236,7 +232,7 @@ public partial class FishingManager : IDisposable
 
         if (_lastState == currentState)
             return;
-        
+
         _lastState = currentState;
 
         switch (currentState)
@@ -261,26 +257,28 @@ public partial class FishingManager : IDisposable
 
     private void InitFinishing()
     {
-        if (!_fishingTimer.IsRunning) 
+        if (!_fishingTimer.IsRunning)
             _fishingTimer.Start();
-        
+
         UpdateStatusAndTimer();
     }
 
     FishConfig? lastCatchCfg = null;
+
     private void CheckPluginActions()
     {
         if (!EzThrottler.Throttle(@"CheckPluginActions", 500))
             return;
-        
+
         if (!PlayerRes.IsCastAvailable())
             return;
 
         lastCatchCfg ??= GetLastCatchConfig();
-       
+
         var extraCfg = GetExtraCfg();
 
-        if (_lastStep.HasFlag(FishingSteps.FishCaught) && (_lastStep & (FishingSteps.None | FishingSteps.Quitting)) == 0)
+        if (_lastStep.HasFlag(FishingSteps.FishCaught) &&
+            (_lastStep & (FishingSteps.None | FishingSteps.Quitting)) == 0)
             CheckStopCondition();
 
         // the order matters
@@ -292,7 +290,7 @@ public partial class FishingManager : IDisposable
             casted = UseFishCaughtActions(lastCatchCfg);
             CheckFishCaughtSwap(lastCatchCfg);
         }
-        
+
         FishingHelper.RemoveGuidQueue();
 
         if (!casted)
@@ -308,12 +306,10 @@ public partial class FishingManager : IDisposable
         _isMooching = mooching;
         _lureSuccess = false;
 
-        var baitname = MultiString.GetItemName(GetCurrentBaitMoochId());
+        // Only pass isMooching=true if the mooch action was actually used
+        var baitname = MultiString.GetItemName(Service.BaitManager.GetCurrentBaitMoochId(_lastCatch?.Id, _isMooching));
         if (!_isMooching)
-        {
-            _isMooching = Service.BaitManager.CurrentSwimBait != null;
-            Service.PrintDebug(@$"Started fishing with {(_isMooching ? @"Swimbait" : @"normal bait")}: {baitname}");
-        }
+            Service.PrintDebug(@$"Started fishing with {(Service.BaitManager.IsMooching() ? @"Swimbait/Mooch" : @"normal bait")}: {baitname}");
         else
             Service.PrintDebug(@$"Started mooching with {baitname}");
 
@@ -339,7 +335,6 @@ public partial class FishingManager : IDisposable
             _lastStep.HasFlag(FishingSteps.Reeling))
             return;
 
-        
         Service.Status = @$"Timeout reached - using Rest";
         PlayerRes.CastActionDelayed(IDs.Actions.Rest, ActionType.Action, UIStrings.Hook);
         _lastStep = FishingSteps.TimeOut;
@@ -350,14 +345,13 @@ public partial class FishingManager : IDisposable
         UpdateStatusAndTimer();
         var currentHook = GetHookCfg();
         _fishingTimer.Stop();
-        
+
         if (PlayerRes.HasStatus(IDs.Status.Salvage) && GetAutoCastCfg().ChumAnimationCancel)
             PlayerRes.CastAction(IDs.Actions.Salvage);
 
         _lastCatch = null;
         _lastStep = FishingSteps.FishBit;
         HookFish(Service.TugType?.Bite ?? BiteType.Unknown, currentHook);
-        
     }
 
     private void HookFish(BiteType bite, HookConfig currentHook)
@@ -386,8 +380,8 @@ public partial class FishingManager : IDisposable
 
         Service.TaskManager.EnqueueDelay(delay);
         Service.TaskManager.Enqueue(() =>
-            PlayerRes.CastActionDelayed((uint)hook, ActionType.Action, @$"{hook.ToString()}"));
-        Service.Status = (@$"Using {hook.ToString()} hook. (Bite: {bite})");
+            PlayerRes.CastActionDelayed((uint)hook, ActionType.Action, @$"{hook}"));
+        Service.Status = (@$"Using {hook} hook. (Bite: {bite})");
     }
 
     private void OnCatch(uint fishId, uint amount)

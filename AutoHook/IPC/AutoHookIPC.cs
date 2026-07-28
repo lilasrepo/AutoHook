@@ -1,13 +1,10 @@
-﻿using System;
-using AutoHook.Configurations;
-using System.Linq;
-using ECommons.EzIpcManager;
+﻿using ECommons.EzIpcManager;
 
 namespace AutoHook.IPC;
 
 public class AutoHookIPC
 {
-    private Configuration _cfg = Service.Configuration;
+    private readonly Configuration _cfg = Service.Configuration;
 
     public AutoHookIPC()
     {
@@ -17,8 +14,26 @@ public class AutoHookIPC
     [EzIPC]
     public void SetPluginState(bool state)
     {
-        
         _cfg.PluginEnabled = state;
+        Service.Save();
+    }
+
+    [EzIPC]
+    public bool GetPluginState()
+    {
+        return _cfg.PluginEnabled;
+    }
+
+    [EzIPC]
+    public bool GetAutoStartFishing()
+    {
+        return _cfg.AutoStartFishing;
+    }
+    
+    [EzIPC]
+    public void SetAutoStartFishing(bool state)
+    {
+        _cfg.AutoStartFishing = state;
         Service.Save();
     }
 
@@ -67,7 +82,7 @@ public class AutoHookIPC
         if (_import == null) return;
         var name = $"{_import.PresetName}";
         _import.RenamePreset(name);
-        
+
         if (_import is CustomPresetConfig customPreset)
             _cfg.HookPresets.AddNewPreset(customPreset);
         else if (_import is AutoGigConfig gigPreset)
@@ -91,5 +106,39 @@ public class AutoHookIPC
     {
         _cfg.HookPresets.CustomPresets.RemoveAll(p => p.PresetName.StartsWith("anon_"));
         Service.Save();
+    }
+
+    [EzIPC]
+    public bool SwapBaitById(uint baitId)
+    {
+        var result = Service.BaitManager.ChangeBait(baitId);
+        return result is BaitManager.ChangeBaitReturn.Success or BaitManager.ChangeBaitReturn.AlreadyEquipped;
+    }
+
+    [EzIPC]
+    public bool SwapBait(string baitNameOrId)
+    {
+        if (string.IsNullOrWhiteSpace(baitNameOrId))
+            return false;
+
+        if (uint.TryParse(baitNameOrId, out var parsedId))
+            return SwapBaitById(parsedId);
+
+        var bait = GameRes.Baits.FirstOrDefault(b =>
+            string.Equals(b.Name, baitNameOrId, StringComparison.OrdinalIgnoreCase));
+
+        if (bait == null || bait.Id <= 0)
+            return false;
+
+        var result = Service.BaitManager.ChangeBait((uint)bait.Id);
+        return result is BaitManager.ChangeBaitReturn.Success or BaitManager.ChangeBaitReturn.AlreadyEquipped;
+    }
+
+    // Swaps the current swimbait slot by index (0,1,2).
+    [EzIPC]
+    public bool SwapSwimbaitByIndex(byte index)
+    {
+        var result = Service.BaitManager.ChangeSwimbait(index);
+        return result is BaitManager.ChangeBaitReturn.Success or BaitManager.ChangeBaitReturn.AlreadyEquipped;
     }
 }

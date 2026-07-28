@@ -1,105 +1,36 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net9.0-windows</TargetFramework>
+    <Platforms>x64</Platforms>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+  </PropertyGroup>
+
     <PropertyGroup>
         <Authors>Det</Authors>
-        <Version>4.3.4.3</Version>
-        <Description>Auto hooks for you</Description>
-        <PackageProjectUrl>https://github.com/PunishXIV/AutoHook</PackageProjectUrl>
-        <Configurations>Release;Debug</Configurations>
-        <TargetFramework>net9.0-windows</TargetFramework>
-        <Platforms>x64</Platforms>
-        
-        <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
-        <OutputPath>bin\$(Configuration)\</OutputPath>
-        
+        <Version>5.0.0.11</Version>
+        <LangVersion>preview</LangVersion>
+		<GenerateErrorForMissingTargetingPacks>false</GenerateErrorForMissingTargetingPacks>
     </PropertyGroup>
 
-    <PropertyGroup>
-        <Nullable>enable</Nullable>
-        <LangVersion>latest</LangVersion>
-        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-        <ProduceReferenceAssembly>false</ProduceReferenceAssembly>
-        <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
-        <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
-        <EnableWindowsTargeting>true</EnableWindowsTargeting>
-    </PropertyGroup>
-
-    <PropertyGroup>
-        <DalamudLibPath>$(MSBuildThisFileDirectory)..\..\..\TC_ok\_dalamud_api13\</DalamudLibPath>
-    </PropertyGroup>
-
-    <ItemGroup>
-        <Content Include="AutoHook.json">
-            <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-        </Content>
-    </ItemGroup>
-    
-    <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-        <DebugType>none</DebugType>
-        <DebugSymbols>false</DebugSymbols>
-    </PropertyGroup>
-
-    <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-        <DebugType>none</DebugType>
-        <DebugSymbols>false</DebugSymbols>
-    </PropertyGroup>
-
-    <ItemGroup>
-        <None  Include="Data\FishData\*">
-            <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-        </None >
-        <None Update="images\Fishy.png">
-            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-        </None>
-        <None Update="images\Fishy_g.png">
-            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-        </None>
+    <ItemGroup><EmbeddedResource Include="Assets\Fishy.png" />
+		<EmbeddedResource Include="Assets\Fishy_g.png" />
     </ItemGroup>
 
     <PropertyGroup Condition="'$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Linux)))'">
         <DalamudLibPath>$(MSBuildThisFileDirectory)..\..\..\TC_ok\_dalamud_api13\</DalamudLibPath>
     </PropertyGroup>
+  <PropertyGroup>
+    <DalamudLibPath>$(MSBuildThisFileDirectory)..\..\..\TC_ok\_dalamud_api13\</DalamudLibPath>
+  </PropertyGroup>
+
 
     <ItemGroup>
-        <PackageReference Include="DalamudPackager" Version="13.1.0" />
-        <PackageReference Include="HtmlAgilityPack" Version="1.11.61" />
-        <ProjectReference Include="..\PunishLib\PunishLib\PunishLib.csproj"/>
-        <Reference Include="FFXIVClientStructs">
-            <HintPath>$(DalamudLibPath)FFXIVClientStructs.dll</HintPath>
-            <Private>false</Private>
-        </Reference>
-        <Reference Include="InteropGenerator.Runtime">
-            <HintPath>$(DalamudLibPath)InteropGenerator.Runtime.dll</HintPath>
-            <Private>false</Private>
-        </Reference>
-        <Reference Include="Newtonsoft.Json">
-            <HintPath>$(DalamudLibPath)Newtonsoft.Json.dll</HintPath>
-            <Private>false</Private>
-        </Reference>
-        <Reference Include="Dalamud">
-            <HintPath>$(DalamudLibPath)Dalamud.dll</HintPath>
-            <Private>false</Private>
-        </Reference>
-        <Reference Include="Dalamud.Bindings.ImGui">
-            <HintPath>$(DalamudLibPath)Dalamud.Bindings.ImGui.dll</HintPath>
-            <Private>false</Private>
-        </Reference>
-        <Reference Include="Dalamud.Bindings.ImPlot">
-            <HintPath>$(DalamudLibPath)Dalamud.Bindings.ImPlot.dll</HintPath>
-            <Private>False</Private>
-        </Reference>
-        <Reference Include="ImGuiScene">
-            <HintPath>$(DalamudLibPath)ImGuiScene.dll</HintPath>
-            <Private>false</Private>
-        </Reference>
-        <Reference Include="Lumina">
-            <HintPath>$(DalamudLibPath)Lumina.dll</HintPath>
-            <Private>false</Private>
-        </Reference>
-        <Reference Include="Lumina.Excel">
-            <HintPath>$(DalamudLibPath)Lumina.Excel.dll</HintPath>
-            <Private>false</Private>
-        </Reference>
+        <ProjectReference Include="..\ECommons\ECommons\ECommons.csproj" />
+        <PackageReference Include="HtmlAgilityPack" Version="1.12.4" />
+        <ProjectReference Include="..\PunishLib\PunishLib\PunishLib.csproj" />
     </ItemGroup>
 
     <ItemGroup>
@@ -116,4 +47,55 @@
             <LastGenOutput>UIStrings.Designer.cs</LastGenOutput>
         </EmbeddedResource>
     </ItemGroup>
+
+    <ItemGroup>
+      <PackageReference Update="DotNet.ReproducibleBuilds" Version="1.2.39" />
+    </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="DalamudPackager" Version="13.1.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="Newtonsoft.Json">
+      <HintPath>$(DalamudLibPath)Newtonsoft.Json.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Dalamud">
+      <HintPath>$(DalamudLibPath)Dalamud.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Dalamud.Common">
+      <HintPath>$(DalamudLibPath)Dalamud.Common.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Dalamud.Bindings.ImGui">
+      <HintPath>$(DalamudLibPath)Dalamud.Bindings.ImGui.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Lumina">
+      <HintPath>$(DalamudLibPath)Lumina.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Lumina.Excel">
+      <HintPath>$(DalamudLibPath)Lumina.Excel.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="FFXIVClientStructs">
+      <HintPath>$(DalamudLibPath)FFXIVClientStructs.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="InteropGenerator.Runtime">
+      <HintPath>$(DalamudLibPath)InteropGenerator.Runtime.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Dalamud.Bindings.ImPlot">
+      <HintPath>$(DalamudLibPath)Dalamud.Bindings.ImPlot.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Dalamud.Bindings.ImGuizmo">
+      <HintPath>$(DalamudLibPath)Dalamud.Bindings.ImGuizmo.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+
 </Project>

@@ -1,20 +1,9 @@
-﻿using System.Linq;
-using System.Runtime.InteropServices;
-using AutoHook.Classes;
-using AutoHook.Enums;
-using AutoHook.Utils;
-using Dalamud.Game;
-using Dalamud.Utility.Signatures;
-using FFXIVClientStructs.FFXIV.Client.Game;
-using FFXIVClientStructs.FFXIV.Client.Game.UI;
+﻿using Dalamud.Utility.Signatures;
 using FFXIVClientStructs.FFXIV.Client.Game.Event;
+using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using FFXIVClientStructs.FFXIV.Client.Game.WKS;
-using ECommons.GameHelpers;
-using ECommons;
 using Lumina.Excel.Sheets;
-// porting-note(api13): FFXIVClientStructs 6966 added FFXIV.Client.Game.Event.FishingState, which now
-// collides with AutoHook.Enums.FishingState. The consumer is AutoHook's OWN FishingManagerStruct
-// ([FieldOffset(0x228)] public FishingState FishingState) further down this file, so alias to ours.
+using System.Runtime.InteropServices;
 using FishingState = AutoHook.Enums.FishingState;
 
 namespace AutoHook.SeFunctions;
@@ -23,15 +12,17 @@ public unsafe class BaitManager
 {
     public BaitManager()
     {
-        Service.GameInteropProvider.InitializeFromAttributes(this);
+        Svc.Hook.InitializeFromAttributes(this);
+        Address = Svc.SigScanner.GetStaticAddressFromSig("8B 0D ?? ?? ?? ?? 3B D9 75");
     }
 
     private delegate byte ExecuteCommandDelegate(int id, int unk1, uint baitId, int unk2, int unk3);
 
-    [Signature("E8 ?? ?? ?? ?? 41 C6 04 24")]
+    [Signature(SignaturePatterns.ExecuteCommand)]
     private readonly ExecuteCommandDelegate _executeCommand = null!;
 
     private const int FishingManagerOffset = 0x70;
+    public IntPtr Address;
 
     internal FishingManagerStruct* FishingMan
     {
@@ -76,19 +67,34 @@ public unsafe class BaitManager
         }
     }
 
+    public uint[] SwimbaitIds
+    {
+        get
+        {
+            var ptr = FishingMan;
+            if (ptr == null)
+                return [];
+            var ids = new uint[3];
+            ids[0] = ptr->SwimBaitId1;
+            ids[1] = ptr->SwimBaitId2;
+            ids[2] = ptr->SwimBaitId3;
+            return ids;
+        }
+    }
+
     //public uint Current => PlayerState.Instance()->FishingBait;
-    
+
     public uint CurrentBaitSwimBait => CurrentSwimBait ?? Current;
 
     public uint Current
     {
         get
         {
-            if (GenericHelpers.GetRow<TerritoryType>(Player.Territory) is { TerritoryIntendedUse.RowId: 60 })
+            if (GetRow<TerritoryType>(Player.Territory) is { TerritoryIntendedUse.RowId: 60 })
             {
                 var cosmicManager = WKSManager.Instance();
                 if (cosmicManager != null)
-                    return *(uint*)((byte*)cosmicManager + 0xC9C);
+                    return cosmicManager->FishingBait;
             }
 
             return PlayerState.Instance()->FishingBait;
@@ -109,13 +115,12 @@ public unsafe class BaitManager
         return _executeCommand(701, 4, baitId, 0, 0) == 1 ? ChangeBaitReturn.Success : ChangeBaitReturn.UnknownError;
     }
 
-
-    public ChangeBaitReturn ChangeSwimbait(uint id)
+    public ChangeBaitReturn ChangeSwimbait(uint index)
     {
-        if (id > 2)
+        if (index > 2)
             return ChangeBaitReturn.InvalidBait;
 
-        return _executeCommand(701, 25, id, 0, 0) == 1 ? ChangeBaitReturn.Success : ChangeBaitReturn.UnknownError;
+        return _executeCommand(701, 25, index, 0, 0) == 1 ? ChangeBaitReturn.Success : ChangeBaitReturn.UnknownError;
     }
 
     public ChangeBaitReturn ChangeBait(BaitFishClass bait)
@@ -141,6 +146,63 @@ public unsafe class BaitManager
         return _executeCommand(701, 4, (uint)bait.Id, 0, 0) == 1
             ? ChangeBaitReturn.Success
             : ChangeBaitReturn.UnknownError;
+    }
+
+    public int GetSwimbaitCount()
+    {
+        var ptr = FishingMan;
+        if (ptr == null)
+            return 0;
+
+        var count = 0;
+        if (ptr->SwimBaitId1 != 0) count++;
+        if (ptr->SwimBaitId2 != 0) count++;
+        if (ptr->SwimBaitId3 != 0) count++;
+
+        return count;
+    }
+
+    public int GetSwimbaitCountForFish(uint fishId)
+    {
+        var ptr = FishingMan;
+        if (ptr == null)
+            return 0;
+
+        var count = 0;
+        if (ptr->SwimBaitId1 == fishId) count++;
+        if (ptr->SwimBaitId2 == fishId) count++;
+        if (ptr->SwimBaitId3 == fishId) count++;
+
+        return count;
+    }
+
+    public bool IsSwimbaitFull() => GetSwimbaitCount() >= 3;
+    public bool IsSwimbaitEmpty() => GetSwimbaitCount() == 0;
+
+    /// <summary>
+    /// Checks if the current bait on the line is a moochable fish (swimbait case).
+    /// For normal mooching, Current stays as the original bait, so this will return false.
+    /// Use the isMooching parameter in GetCurrentBaitMoochId to handle normal mooching.
+    /// </summary>
+    public bool IsMooching() => GameRes.MoochableFish.Any(f => f.Id == Current);
+
+    /// <summary>
+    /// Gets the current bait/mooch ID on the line. Returns the fish ID if mooching/swimbait, otherwise returns the bait ID.
+    /// </summary>
+    /// <param name="fallbackId">Optional fallback ID (last catch) to use only when actually mooching</param>
+    /// <param name="isMooching">If actually mooching (mooch action was used)</param>
+    /// <returns>The current bait or mooch fish ID</returns>
+    public int GetCurrentBaitMoochId(int? fallbackId = null, bool isMooching = false)
+    {
+        var currentId = Current;
+
+        if (GameRes.Fishes.Any(f => f.Id == currentId))
+            return (int)currentId;
+
+        if (isMooching && fallbackId.HasValue && fallbackId.Value > 0 && GameRes.Fishes.Any(f => f.Id == fallbackId.Value))
+            return fallbackId.Value;
+
+        return (int)currentId;
     }
 
     public enum ChangeBaitReturn

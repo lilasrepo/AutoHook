@@ -59,46 +59,46 @@
             : using a System.ComponentModel.TypeConverter
             : and then encoded with base64 encoding.
     -->
-  <xsd:schema xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata" id="root">
-    <xsd:import namespace="http://www.w3.org/XML/1998/namespace"/>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
     <xsd:element name="root" msdata:IsDataSet="true">
       <xsd:complexType>
         <xsd:choice maxOccurs="unbounded">
           <xsd:element name="metadata">
             <xsd:complexType>
               <xsd:sequence>
-                <xsd:element name="value" type="xsd:string" minOccurs="0"/>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
               </xsd:sequence>
-              <xsd:attribute name="name" use="required" type="xsd:string"/>
-              <xsd:attribute name="type" type="xsd:string"/>
-              <xsd:attribute name="mimetype" type="xsd:string"/>
-              <xsd:attribute ref="xml:space"/>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
             </xsd:complexType>
           </xsd:element>
           <xsd:element name="assembly">
             <xsd:complexType>
-              <xsd:attribute name="alias" type="xsd:string"/>
-              <xsd:attribute name="name" type="xsd:string"/>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
             </xsd:complexType>
           </xsd:element>
           <xsd:element name="data">
             <xsd:complexType>
               <xsd:sequence>
-                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1"/>
-                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2"/>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
               </xsd:sequence>
-              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1"/>
-              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3"/>
-              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4"/>
-              <xsd:attribute ref="xml:space"/>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
             </xsd:complexType>
           </xsd:element>
           <xsd:element name="resheader">
             <xsd:complexType>
               <xsd:sequence>
-                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1"/>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
               </xsd:sequence>
-              <xsd:attribute name="name" type="xsd:string" use="required"/>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
             </xsd:complexType>
           </xsd:element>
         </xsd:choice>
@@ -164,6 +164,9 @@
   </data>
   <data name="TabPresets_DrawHeader_IsEnabledByDefault" xml:space="preserve">
     <value>Ist standardmäßig aktiv, wenn ein neuer Köder/Naturköder hinzugefügt wird</value>
+  </data>
+  <data name="TabPresets_DrawHeader_CorrectlyEditTheBaitMoochName" xml:space="preserve">
+    <value>"Alle Köder" und "Alle Naturköder" haben die niedrigste Priorität</value>
   </data>
   <data name="NewBaitMooch" xml:space="preserve">
     <value>Neuer Köder/Naturköder</value>
@@ -842,7 +845,7 @@ Schau in den Guide Tab für Erklärungen.</value>
     <value>Wichtig! Auto Angeln wird nicht benutzt, wenn manuell Angeschlagen wurde.</value>
   </data>
   <data name="Acton_Alert_Manual_Hook" xml:space="preserve">
-    <value>Wichtig! Skills weden nicht benutzt, wenn manuell Angeschlagen wurde.</value>
+    <value>Wichtig! Skills werden nicht benutzt, wenn manuell Angeschlagen wurde.</value>
   </data>
   <data name="Food_Buff" xml:space="preserve">
     <value>Nahrungsverstärkung</value>
@@ -899,10 +902,16 @@ Schau in den Guide Tab für Erklärungen.</value>
   <data name="Set_preset_command" xml:space="preserve">
     <value>Benutzerdefiniertes Preset wird im Chat mit folgendem Kommando festgelegt -&gt; /ahpreset presetName</value>
   </data>
+  <data name="Set_agpreset_command" xml:space="preserve">
+    <value>Benutzerdefiniertes Preset wird im Chat mit folgendem Kommando festgelegt -&gt; /ahpreset presetName</value>
+  </data>
   <data name="Starts_AutoHook" xml:space="preserve">
     <value>Starte Angeln mit deinem ausgewählten Preset</value>
   </data>
   <data name="Preset_set_to_" xml:space="preserve">
+    <value>Preset eingestellt auf:</value>
+  </data>
+  <data name="Gig_preset_set_to_" xml:space="preserve">
     <value>Preset eingestellt auf:</value>
   </data>
   <data name="When_gaining_spectral_current" xml:space="preserve">
@@ -1202,11 +1211,35 @@ Du kannst wahlweise auch das Kommando /ahstart zum Starten verwenden. Auch in Ma
   <data name="Fish_Hitbox_Offset" xml:space="preserve">
     <value>Fisch Treffer-Bereich Versatz</value>
   </data>
+  <data name="OffsetLR" xml:space="preserve">
+    <value>Versatz (L-&gt;R)</value>
+  </data>
+  <data name="OffsetRL" xml:space="preserve">
+    <value>Versatz (R-&gt;L)</value>
+  </data>
+  <data name="OffsetRLHelpText" xml:space="preserve">
+    <value>Hitbox-Versatz für Fische, die von rechts nach links kommen</value>
+  </data>
+  <data name="FishHitboxHelpText" xml:space="preserve">
+    <value>Passen Sie den Hitbox-Bereich an, wenn Sie denken, dass zu viel fehlt</value>
+  </data>
+  <data name="NBBeforeFish" xml:space="preserve">
+    <value>Nutze Großes Füllhorn bevor der Fisch erscheint</value>
+  </data>
   <data name="AutoCordialPandoras" xml:space="preserve">
     <value>Auto-Cordial kann im Pandora's Box Plugin gefunden werden</value>
   </data>
   <data name="UseLures" xml:space="preserve">
     <value>Köder benutzen</value>
+  </data>
+  <data name="BigGameFishing" xml:space="preserve">
+    <value>Kaventskenntnis</value>
+  </data>
+  <data name="AmbitiousLure" xml:space="preserve">
+    <value>Ehrgeiziges Ködern</value>
+  </data>
+  <data name="ModestLure" xml:space="preserve">
+    <value>Bescheidenes Ködern</value>
   </data>
   <data name="OnlySpecial" xml:space="preserve">
     <value>Nur Spezial</value>
@@ -1216,6 +1249,9 @@ Du kannst wahlweise auch das Kommando /ahstart zum Starten verwenden. Auch in Ma
   </data>
   <data name="LureType" xml:space="preserve">
     <value>Köder Typ:</value>
+  </data>
+  <data name="SparefulHand" xml:space="preserve">
+    <value>Fischnatur</value>
   </data>
   <data name="Disabled" xml:space="preserve">
     <value>Deaktiviert</value>
@@ -1253,6 +1289,12 @@ Du kannst wahlweise auch das Kommando /ahstart zum Starten verwenden. Auch in Ma
   <data name="ClickOpenWiki" xml:space="preserve">
     <value>Hier klicken, um die Wiki-Seite zu öffnen</value>
   </data>
+  <data name="UseIcActive" xml:space="preserve">
+    <value>Verwende, wenn Stetes Angeln aktiv ist</value>
+  </data>
+  <data name="UseSlapActive" xml:space="preserve">
+    <value>Verwende, wenn Bunte Gewässer aktiv ist</value>
+  </data>
   <data name="CantFishHere" xml:space="preserve">
     <value>Du kannst hier nicht fischen</value>
   </data>
@@ -1274,10 +1316,40 @@ Du kannst wahlweise auch das Kommando /ahstart zum Starten verwenden. Auch in Ma
   <data name="AnimationCanceling" xml:space="preserve">
     <value>Animation abbrechen</value>
   </data>
+  <data name="ClickToToggle" xml:space="preserve">
+    <value>Klicken zum ein/aus schalten</value>
+  </data>
   <data name="MakeACopy" xml:space="preserve">
     <value>Kopie erstellen</value>
   </data>
   <data name="StatusNoPreset" xml:space="preserve">
     <value>Keine Voreinstellung aktiv, globale Voreinstellung wird stattdessen verwendet</value>
   </data>
+  <data name="Conditions" xml:space="preserve">
+    <value>Konditionen</value>
+  </data>
+  <data name="Conditions_HelpText" xml:space="preserve">
+    <value>Bestimmte Bedingungen für den Anschlag</value>
+  </data>
+  <data name="FolderExported" xml:space="preserve">
+    <value>Ordner in die Zwischenablage exportiert</value>
+  </data>
+  <data name="RenameFolder" xml:space="preserve">
+    <value>Ordner umbenennen</value>
+  </data>
+  <data name="CreateNewFolder" xml:space="preserve">
+    <value>Neuen Ordner erstellen</value>
+  </data>
+  <data name="Create" xml:space="preserve">
+    <value>Erstellen</value>
+  </data>
+  <data name="RenamePreset" xml:space="preserve">
+    <value>Preset umbenennen</value>
+  </data>
+  <data name="FolderName" xml:space="preserve">
+    <value>Ordner Name</value>
+  </data>
+  <data name="GPlabel" xml:space="preserve">
+		<value>SP</value>
+	</data>
 </root>
