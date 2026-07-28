@@ -1,19 +1,21 @@
 ﻿using Dalamud.Interface.Utility;
 using ECommons.Throttlers;
-using ImGuiNET;
+using Dalamud.Bindings.ImGui;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Numerics;
 
 namespace ECommons.ImGuiMethods;
 public static partial class ImGuiEx
 {
-    public static bool InputFancyNumeric(string label, ref int number, int step)
+    public static bool InputFancyNumeric(string label, ref int number, int step, Action? afterInput = null)
     {
         var str = $"{number:N0}";
         var lbl = label.StartsWith("##") ? label : $"##{label}";
         var ret = ImGui.InputText(lbl, ref str, 50, ImGuiInputTextFlags.AutoSelectAll);
+        afterInput?.Invoke();
         var btn = false;
         if(step > 0)
         {
@@ -69,9 +71,9 @@ public static partial class ImGuiEx
                     mult *= 1000;
                     str = str[0..^1];
                 }
-                if(int.TryParse(str, NumberStyles.AllowThousands, null, out var result))
+                if(double.TryParse(str, NumberStyles.AllowThousands | NumberStyles.AllowDecimalPoint, null, out var dresult))
                 {
-                    number = result * mult;
+                    number = (int)(dresult * (double)mult);
                     if(negative) number *= -1;
                 }
             }
@@ -108,41 +110,50 @@ public static partial class ImGuiEx
         if(!enabled) ImGui.BeginDisabled();
         ImGui.SameLine();
         ImGui.SetNextItemWidth(width);
-        var ret = ImGui.InputInt(label, ref value, step, step_fast, flags);
+        var ret = ImGui.InputInt(label, ref value, step, step_fast, flags: flags);
         if(ret) valueNullable = value;
         if(!enabled) ImGui.EndDisabled();
         return ret || chk;
     }
 
     /// <summary>
-    /// <see cref="ImGui.SliderInt"/> but with double-click to edit support.
+    /// An <see cref="ImGui.InputFloat(ImU8String, ref float, float, float, ImU8String, ImGuiInputTextFlags)"/> for nullable int. Consists of checkbox and input component that is enabled/disabled based on checkbox state.
     /// </summary>
+    /// <param name="width"></param>
     /// <param name="label"></param>
-    /// <param name="v"></param>
-    /// <param name="v_min"></param>
-    /// <param name="v_max"></param>
-    /// <param name="format"></param>
+    /// <param name="valueNullable"></param>
+    /// <param name="step"></param>
+    /// <param name="step_fast"></param>
     /// <param name="flags"></param>
     /// <returns></returns>
-    public static bool SliderInt(string label, ref int v, int v_min, int v_max, string format, ImGuiSliderFlags flags)
+    public static bool InputFloat(float width, string label, ref float? valueNullable, int step = 1, int step_fast = 100, ImGuiInputTextFlags flags = ImGuiInputTextFlags.None)
     {
-        var ret = ImGui.SliderInt(label, ref v, v_min, v_max, format, flags);
-        ActivateIfDoubleClicked();
-        return ret;
+        ImGui.PushID($"NullableInputFloat{label}");
+        var enabled = valueNullable != null;
+        var chk = ImGui.Checkbox($"##checkbox", ref enabled);
+        if(chk)
+        {
+            valueNullable = enabled ? 0 : null;
+        }
+        ImGui.PopID();
+        var value = valueNullable ?? 0;
+        if(!enabled) ImGui.BeginDisabled();
+        ImGui.SameLine();
+        ImGui.SetNextItemWidth(width);
+        var ret = ImGui.InputFloat(label, ref value, step, step_fast, flags: flags);
+        if(ret) valueNullable = value;
+        if(!enabled) ImGui.EndDisabled();
+        return ret || chk;
     }
 
-    ///<inheritdoc cref="SliderInt(string, ref int, int, int, string, ImGuiSliderFlags)"/>
-    public static bool SliderInt(string label, ref int v, int v_min, int v_max, string format)
+    /// <summary>
+    /// Supports activation by double-click
+    /// </summary>
+    /// <inheritdoc cref="ImGui.SliderInt"/>
+    public static bool SliderInt(ImU8String label, scoped ref int v, int vMin = 0, int vMax = 0, ImU8String format = default,
+        ImGuiSliderFlags flags = ImGuiSliderFlags.None)
     {
-        var ret = ImGui.SliderInt(label, ref v, v_min, v_max, format);
-        ActivateIfDoubleClicked();
-        return ret;
-    }
-
-    ///<inheritdoc cref="SliderInt(string, ref int, int, int, string, ImGuiSliderFlags)"/>
-    public static bool SliderInt(string label, ref int v, int v_min, int v_max)
-    {
-        var ret = ImGui.SliderInt(label, ref v, v_min, v_max);
+        var ret = ImGui.SliderInt(label, ref v, vMin, vMax, format, flags);
         ActivateIfDoubleClicked();
         return ret;
     }
@@ -200,22 +211,22 @@ public static partial class ImGuiEx
         return ret;
     }
 
-    public static unsafe bool InputTextWrapMultilineExpanding(string id, ref string text, uint maxLength = 500, int minLines = 2, int maxLines = 10, int? width = null)
+    public static unsafe bool InputTextWrapMultilineExpanding(string id, ref string text, int maxLength = 500, int minLines = 2, int maxLines = 10, int? width = null)
     {
         var wrapWidth = width ?? ImGui.GetContentRegionAvail().X; // determine wrap width
         var result = ImGui.InputTextMultiline(id, ref text, maxLength,
             new(width ?? ImGui.GetContentRegionAvail().X, ImGui.CalcTextSize("A").Y * Math.Clamp(text.Split("\n").Length + 1, minLines, maxLines)),
             ImGuiInputTextFlags.CallbackEdit, // flag stuff 
-            (data) =>
+            (ref ImGuiInputTextCallbackData data) =>
             {
-                return TextEditCallback(data, wrapWidth); // Callback Action
+                return TextEditCallback(ref data, wrapWidth); // Callback Action
             });
         return result;
     }
 
-    public static bool InputTextMultilineExpanding(string id, ref string text, uint maxLength = 500, int minLines = 2, int maxLines = 10, int? width = null)
+    public static bool InputTextMultilineExpanding(string id, ref string text, int maxLength = 500, int minLines = 2, int maxLines = 10, int? width = null)
     {
-        return ImGui.InputTextMultiline(id, ref text, maxLength, new(width ?? ImGui.GetContentRegionAvail().X, ImGui.CalcTextSize("A").Y * Math.Clamp(text.Split("\n").Length + 1, minLines, maxLines)));
+        return ImGui.InputTextMultiline(id, ref text, maxLength, new Vector2(width ?? ImGui.GetContentRegionAvail().X, ImGui.CalcTextSize("A").Y * Math.Clamp(text.Split("\n").Length + 1, minLines, maxLines)));
     }
 
     private static Dictionary<string, Box<string>> InputListValuesString = [];
@@ -265,7 +276,7 @@ public static partial class ImGuiEx
             {
                 var id = $"{name}ECommonsDeleItem{i}";
                 var x = list[i];
-                ImGui.Selectable($"{(overrideValues != null && overrideValues.ContainsKey(x) ? overrideValues[x] : x)}");
+                ImGui.Selectable($"{(overrideValues != null && overrideValues.ContainsKey(x) ? overrideValues[x] : x.ToString())}");
                 if(ImGui.IsItemClicked(ImGuiMouseButton.Right))
                 {
                     ImGui.OpenPopup(id);
@@ -408,6 +419,44 @@ public static partial class ImGuiEx
         return ret;
     }
 
+    public static bool EnumCombo<T>(string name, ref Nullable<T> refConfigField, Func<T, bool> filter = null, IDictionary<T, string> names = null, string nullName = "Not selected") where T : struct, Enum, IConvertible
+    {
+        var ret = false;
+        if(ImGui.BeginCombo(name, refConfigField == null ? nullName : ((names != null && names.TryGetValue(refConfigField.Value, out var n)) ? n : refConfigField.Value.ToString().Replace("_", " ")), ImGuiComboFlags.HeightLarge))
+        {
+            var values = Enum.GetValues(typeof(T));
+            Box<string> fltr = null;
+            if(values.Length > 10)
+            {
+                if(!EnumComboSearch.ContainsKey(name)) EnumComboSearch.Add(name, new(""));
+                fltr = EnumComboSearch[name];
+                ImGuiEx.SetNextItemFullWidth();
+                ImGui.InputTextWithHint($"##{name.Replace("#", "_")}", "Filter...", ref fltr.Value, 50);
+            }
+            if(ImGui.Selectable(nullName, refConfigField == null))
+            {
+                ret = true;
+                refConfigField = null;
+            }
+            foreach(var x in values)
+            {
+                var equals = EqualityComparer<Nullable<T>>.Default.Equals((T)x, refConfigField);
+                var element = (names != null && names.TryGetValue((T)x, out n)) ? n : x.ToString().Replace("_", " ");
+                if((filter == null || filter((T)x))
+                    && (fltr == null || element.Contains(fltr.Value, StringComparison.OrdinalIgnoreCase))
+                    && ImGui.Selectable(element, equals)
+                    )
+                {
+                    ret = true;
+                    refConfigField = (T)x;
+                }
+                if(ImGui.IsWindowAppearing() && equals) ImGui.SetScrollHereY();
+            }
+            ImGui.EndCombo();
+        }
+        return ret;
+    }
+
     public static Dictionary<string, Box<string>> ComboSearch = [];
     public static bool Combo<T>(string name, ref T refConfigField, IEnumerable<T> values, Func<T, bool> filter = null, Dictionary<T, string> names = null)
     {
@@ -478,7 +527,7 @@ public static partial class ImGuiEx
         suffix?.Invoke();
         if(sameLine) ImGui.SameLine();
         prefix?.Invoke();
-        if(ImGui.RadioButton(inverted?labelTrue:labelFalse, value == inverted)) value = inverted;
+        if(ImGui.RadioButton(inverted ? labelTrue : labelFalse, value == inverted)) value = inverted;
         suffix?.Invoke();
     }
 }

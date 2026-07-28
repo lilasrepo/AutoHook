@@ -10,6 +10,17 @@ using System.Threading.Tasks;
 namespace ECommons;
 public static unsafe partial class GenericHelpers
 {
+    public static IEnumerable<T> TakeEvery<T>(this IEnumerable<T> values, int num)
+    {
+        var i = 0;
+        var e = values.GetEnumerator();
+        while(e.MoveNext())
+        {
+            if(i % num == 0) yield return e.Current;
+            i++;
+        }
+    }
+
     public static T? FirstOrNull<T>(this IEnumerable<T> values, Func<T, bool> predicate) where T : struct
     {
         if(values.TryGetFirst(predicate, out var result))
@@ -325,7 +336,7 @@ public static unsafe partial class GenericHelpers
         return x.Select(x => (x?.ToString() ?? "")).Join(separator);
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Obsolete("Use SafeSelect")]
     public static V GetSafe<K, V>(this IDictionary<K, V> dic, K key, V Default = default)
     {
         if(dic?.TryGetValue(key, out var value) == true)
@@ -368,6 +379,26 @@ public static unsafe partial class GenericHelpers
         }
         dictionary.Add(key, newValue);
         return newValue;
+    }
+
+    public static V GetOrCreate<K, V>(this IDictionary<K, V> dictionary, K key, V defaultValue)
+    {
+        if(dictionary.TryGetValue(key, out var result))
+        {
+            return result;
+        }
+        dictionary.Add(key, defaultValue);
+        return defaultValue;
+    }
+
+    public static V GetOrCreate<K, V>(this IDictionary<K, V> dictionary, K key, Func<V> defaultValueGenerator)
+    {
+        if(dictionary.TryGetValue(key, out var result))
+        {
+            return result;
+        }
+        dictionary.Add(key, defaultValueGenerator());
+        return dictionary[key];
     }
 
     /// <summary>
@@ -451,6 +482,26 @@ public static unsafe partial class GenericHelpers
             {
                 yield return x(v);
             }
+    }
+
+    /// <summary>
+    /// Projects each element of a nested sequence to an IEnumerable and flattens the resulting sequences into one sequence.
+    /// </summary>
+    public static IEnumerable<TResult> SelectNested<TSource, TResult>(this IEnumerable<IEnumerable<TSource>> source, Func<TSource, TResult> selector)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(selector);
+
+        foreach(var innerSequence in source)
+        {
+            if(innerSequence != null)
+            {
+                foreach(var item in innerSequence)
+                {
+                    yield return selector(item);
+                }
+            }
+        }
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

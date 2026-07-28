@@ -2,7 +2,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <Authors>Det</Authors>
-        <Version>4.3.4.2</Version>
+        <Version>4.3.4.3</Version>
         <Description>Auto hooks for you</Description>
         <PackageProjectUrl>https://github.com/PunishXIV/AutoHook</PackageProjectUrl>
         <Configurations>Release;Debug</Configurations>
@@ -25,7 +25,7 @@
     </PropertyGroup>
 
     <PropertyGroup>
-        <DalamudLibPath>$(MSBuildThisFileDirectory)..\..\..\TC_ok\_dalamud_api12\</DalamudLibPath>
+        <DalamudLibPath>$(MSBuildThisFileDirectory)..\..\..\TC_ok\_dalamud_api13\</DalamudLibPath>
     </PropertyGroup>
 
     <ItemGroup>
@@ -57,11 +57,11 @@
     </ItemGroup>
 
     <PropertyGroup Condition="'$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Linux)))'">
-        <DalamudLibPath>$(MSBuildThisFileDirectory)..\..\..\TC_ok\_dalamud_api12\</DalamudLibPath>
+        <DalamudLibPath>$(MSBuildThisFileDirectory)..\..\..\TC_ok\_dalamud_api13\</DalamudLibPath>
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="DalamudPackager" Version="2.1.13" />
+        <PackageReference Include="DalamudPackager" Version="13.1.0" />
         <PackageReference Include="HtmlAgilityPack" Version="1.11.61" />
         <ProjectReference Include="..\PunishLib\PunishLib\PunishLib.csproj"/>
         <Reference Include="FFXIVClientStructs">
@@ -80,9 +80,13 @@
             <HintPath>$(DalamudLibPath)Dalamud.dll</HintPath>
             <Private>false</Private>
         </Reference>
-        <Reference Include="ImGui.NET">
-            <HintPath>$(DalamudLibPath)ImGui.NET.dll</HintPath>
+        <Reference Include="Dalamud.Bindings.ImGui">
+            <HintPath>$(DalamudLibPath)Dalamud.Bindings.ImGui.dll</HintPath>
             <Private>false</Private>
+        </Reference>
+        <Reference Include="Dalamud.Bindings.ImPlot">
+            <HintPath>$(DalamudLibPath)Dalamud.Bindings.ImPlot.dll</HintPath>
+            <Private>False</Private>
         </Reference>
         <Reference Include="ImGuiScene">
             <HintPath>$(DalamudLibPath)ImGuiScene.dll</HintPath>

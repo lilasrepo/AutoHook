@@ -1,4 +1,4 @@
-﻿using ImGuiNET;
+﻿using Dalamud.Bindings.ImGui;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -14,7 +14,7 @@ public static unsafe partial class ImGuiEx
     {
         if(!entries.Any())
         {
-            ImGuiEx.Text(EzColor.RedBright, $"Table contains no elements!");
+            ImGuiEx.Text(EColor.RedBright, $"Table contains no elements!");
             return;
         }
         var entriesArray = entries.ToArray();

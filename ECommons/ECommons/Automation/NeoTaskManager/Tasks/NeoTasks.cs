@@ -31,7 +31,7 @@ public static unsafe class NeoTasks
             {
                 if(Player.DistanceTo(obj) < distance && EzThrottler.Throttle("TaskFunction.AutomoveOff", 200))
                 {
-                    Chat.Instance.ExecuteCommand("/automove off");
+                    Chat.ExecuteCommand("/automove off");
                     return false;
                 }
             }
@@ -45,8 +45,8 @@ public static unsafe class NeoTasks
                 {
                     if(EzThrottler.Throttle("TaskFunction.Lockon"))
                     {
-                        Chat.Instance.ExecuteCommand("/lockon on");
-                        Chat.Instance.ExecuteCommand("/automove on");
+                        Chat.ExecuteCommand("/lockon on");
+                        Chat.ExecuteCommand("/automove on");
                         return false;
                     }
                 }
@@ -94,11 +94,11 @@ public static unsafe class NeoTasks
 
     public static TaskManagerTask WaitForScreenAndPlayer(TaskManagerConfiguration? configuration = null)
     {
-        return new(() => Player.Interactable && GenericHelpers.IsScreenReady(), "Wait for screen fadeout complete", configuration);
+        return new(() => Player.Interactable && !Player.IsAnimationLocked && GenericHelpers.IsScreenReady(), "Wait for screen fadeout complete", configuration);
     }
 
     public static TaskManagerTask WaitForNotOccupied(TaskManagerConfiguration? configuration = null)
     {
-        return new(() => !GenericHelpers.IsOccupied() && Player.Interactable && GenericHelpers.IsScreenReady(), "Wait for screen fadeout complete", configuration);
+        return new(() => !GenericHelpers.IsOccupied() && Player.Interactable && !Player.IsAnimationLocked && GenericHelpers.IsScreenReady(), "Wait for screen fadeout complete", configuration);
     }
 }

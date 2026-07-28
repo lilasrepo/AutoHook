@@ -5,11 +5,13 @@ using ECommons.Configuration;
 using ECommons.DalamudServices;
 using ECommons.Events;
 using ECommons.EzContextMenu;
+using ECommons.EzDTR;
 using ECommons.EzEventManager;
 using ECommons.EzHookManager;
 using ECommons.EzIpcManager;
 using ECommons.EzSharedDataManager;
 using ECommons.GameFunctions;
+using ECommons.GameHelpers;
 using ECommons.Hooks;
 using ECommons.ImGuiMethods;
 using ECommons.LazyDataHelpers;
@@ -26,6 +28,7 @@ using Serilog.Events;
 using System;
 using System.Linq;
 using System.Reflection;
+using Callback = ECommons.Automation.Callback;
 
 
 #nullable disable
@@ -36,43 +39,53 @@ public static class ECommonsMain
 {
     public static IDalamudPlugin Instance = null;
     public static bool Disposed { get; private set; } = false;
-    //test
+
+    /// <summary>
+    /// Set this to true to significantly reduce amount of logging ECommons will do. You can change it any time. 
+    /// </summary>
+    public static bool ReducedLogging = false;
+
+    /// <summary>
+    /// gap-fill: upstream added InstanceUniqueId in cdd7f92 (2026-05-26), well after the
+    /// api13-window anchor. Upstream's version coordinates uniqueness across concurrently
+    /// loaded plugins through a shared ConcurrentDictionary wired into Init(); that is a
+    /// larger transplant whose behaviour cannot be runtime-verified while the reference
+    /// DLLs are a self-built preview, so this keeps the simpler form TC has been shipping.
+    /// </summary>
+    public static uint InstanceUniqueId { get; private set; } = unchecked((uint)Guid.NewGuid().GetHashCode());
+
     public static void Init(IDalamudPluginInterface pluginInterface, IDalamudPlugin instance, params Module[] modules)
     {
         Instance = instance;
         GenericHelpers.Safe(() => Svc.Init(pluginInterface));
 #if DEBUG
-var type = "debug build without forms";
+var type = "debug build";
 #elif RELEASE
-        var type = "release build without forms";
-#elif DEBUGFORMS
-var type = "debug build with forms";
-#elif RELEASEFORMS
-        var type = "release build with forms";
+        var type = "release build";
 #else
 var type = "unknown build";
 #endif
-        PluginLog.Information($"This is ECommons v{typeof(ECommonsMain).Assembly.GetName().Version} ({type}) and {Svc.PluginInterface.InternalName} v{instance.GetType().Assembly.GetName().Version}. Hello!");
+        if(!ReducedLogging) PluginLog.Information($"This is ECommons v{typeof(ECommonsMain).Assembly.GetName().Version} ({type}) and {Svc.PluginInterface.InternalName} v{instance.GetType().Assembly.GetName().Version}. Hello!");
         Svc.Log.MinimumLogLevel = LogEventLevel.Verbose;
         GenericHelpers.Safe(CmdManager.Init);
         if(modules.ContainsAny(Module.All, Module.ObjectFunctions))
         {
-            PluginLog.Information("Object functions module has been requested");
+            if(!ReducedLogging) PluginLog.Information("Object functions module has been requested");
             GenericHelpers.Safe(ObjectFunctions.Init);
         }
         if(modules.ContainsAny(Module.All, Module.DalamudReflector, Module.SplatoonAPI))
         {
-            PluginLog.Information("Advanced Dalamud reflection module has been requested");
+            if(!ReducedLogging) PluginLog.Information("Advanced Dalamud reflection module has been requested");
             GenericHelpers.Safe(() => DalamudReflector.Init());
         }
         if(modules.ContainsAny(Module.All, Module.ObjectLife))
         {
-            PluginLog.Information("Object life module has been requested");
+            if(!ReducedLogging) PluginLog.Information("Object life module has been requested");
             GenericHelpers.Safe(ObjectLife.Init);
         }
         if(modules.ContainsAny(Module.All, Module.SplatoonAPI))
         {
-            PluginLog.Information("Splatoon API module has been requested");
+            if(!ReducedLogging) PluginLog.Information("Splatoon API module has been requested");
             GenericHelpers.Safe(Splatoon.Init);
         }
     }
@@ -101,9 +114,9 @@ var type = "unknown build";
         GenericHelpers.Safe(DalamudReflector.Dispose);
         if(EzConfigGui.WindowSystem != null)
         {
-            if (EzConfigGui.Type is EzConfigGui.WindowType.Main or EzConfigGui.WindowType.Both)
+            if(EzConfigGui.Type is EzConfigGui.WindowType.Main or EzConfigGui.WindowType.Both)
                 Svc.PluginInterface.UiBuilder.OpenMainUi -= EzConfigGui.Open;
-            if (EzConfigGui.Type is EzConfigGui.WindowType.Config or EzConfigGui.WindowType.Both)
+            if(EzConfigGui.Type is EzConfigGui.WindowType.Config or EzConfigGui.WindowType.Both)
                 Svc.PluginInterface.UiBuilder.OpenConfigUi -= EzConfigGui.Open;
             Svc.PluginInterface.UiBuilder.Draw -= EzConfigGui.Draw;
             if(EzConfigGui.Config != null)
@@ -145,8 +158,9 @@ var type = "unknown build";
         GenericHelpers.Safe(ContextMenuPrefixRemover.Dispose);
         GenericHelpers.Safe(Purgatory.Purge);
         GenericHelpers.Safe(ExternalWriter.Dispose);
+        GenericHelpers.Safe(EzDtr.DisposeAll);
+        GenericHelpers.Safe(TradeDetectionManager.Dispose);
         //SingletonManager.Dispose();
-        Chat.instance = null;
         Instance = null;
     }
 }

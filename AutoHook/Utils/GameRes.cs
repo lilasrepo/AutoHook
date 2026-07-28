@@ -4,7 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Text.Json;
 using AutoHook.Classes;
-using ImGuiNET;
+using Dalamud.Bindings.ImGui;
 using Lumina.Excel.Sheets;
 
 namespace AutoHook.Utils;
@@ -31,9 +31,18 @@ public static class GameRes
                  .Where(i => i.ItemSearchCategory.RowId == FishingTackleRow)
              ?? [])
             .Concat(
+                // DLLSET-RECHECK(api13 official 13.0.0.16 / Lumina.Excel 7.3.1): the named WKSItemSubCategory column
+                // may not exist in a future Lumina. Re-judged 2026-07-28: the official set's Lumina.Excel.dll is
+                // byte-identical to the preview one and WKSItemInfo.WKSItemSubCategory is present, so this stands.
+                // porting-note(api13): this DLL set's Lumina identified two more WKSItemInfo
+                // columns and dropped one -- Unknown0 is gone, Unknown3 is now a bool, and
+                // Item / WKSItemSubCategory are RowRefs. Upstream HEAD still reads the api12
+                // Unknown names, so there is nothing to port forward. Switched to the named
+                // columns, which is the defensible reading of the better-identified schema.
+                // RUNTIME-VERIFY: confirm the cosmic bait list is still populated.
                 Service.DataManager.GetExcelSheet<WKSItemInfo>()?
-                    .Where(i => i.Unknown3 == 5)
-                    .Select(i => Service.DataManager.GetExcelSheet<Item>()?.GetRow(i.Unknown0))
+                    .Where(i => i.WKSItemSubCategory.RowId == 5)
+                    .Select(i => Service.DataManager.GetExcelSheet<Item>()?.GetRow(i.Item.RowId))
                     .Where(item => item != null)
                     .Cast<Item>()
                 ?? []

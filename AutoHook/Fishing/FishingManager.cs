@@ -71,8 +71,15 @@ public partial class FishingManager : IDisposable
 
     public unsafe void CreateDalamudHooks()
     {
+        // C-fix(7.3): AutoHook upstream last touched this at ea93415 "7.1 Update" (2024-11-16) and still
+        // ships the 7.1 prologue at HEAD, i.e. it has no 7.3 value of its own. But this is the SAME game
+        // function GatherBuddyReborn hooks -- the old sig strings were byte-identical and UpdateCatchDelegate
+        // has the same 12-parameter shape in both plugins -- and GBR's copy of the 7.1 value threw
+        // KeyNotFoundException on TC game v7.20 (runtime-observed 2026-07-28), proving that prologue is gone.
+        // So the value below is transplanted from GatherBuddyReborn aa8e2d83 "Initial update for 7.3"
+        // (2025-08-07), which is also its last pre-7.4 value. Keep the two in sync.
         UpdateCatch = Service.GameInteropProvider.HookFromSignature<UpdateCatchDelegate>(
-            @"40 55 56 41 54 41 56 41 57 48 8D 6C 24 ?? 48 81 EC ?? ?? ?? ?? 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 45 ?? 48 8B 01",
+            @"48 89 6C 24 ?? 56 41 56 41 57 48 81 EC ?? ?? ?? ?? 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 84 24 ?? ?? ?? ?? 48 8B 01",
             UpdateCatchDetour);
         var hookPtr = (IntPtr)ActionManager.MemberFunctionPointers.UseAction;
         _useActionHook = Service.GameInteropProvider.HookFromAddress<UseActionDelegate>(hookPtr, OnUseAction);

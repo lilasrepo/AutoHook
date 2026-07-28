@@ -12,6 +12,10 @@ using FFXIVClientStructs.FFXIV.Client.Game.WKS;
 using ECommons.GameHelpers;
 using ECommons;
 using Lumina.Excel.Sheets;
+// porting-note(api13): FFXIVClientStructs 6966 added FFXIV.Client.Game.Event.FishingState, which now
+// collides with AutoHook.Enums.FishingState. The consumer is AutoHook's OWN FishingManagerStruct
+// ([FieldOffset(0x228)] public FishingState FishingState) further down this file, so alias to ours.
+using FishingState = AutoHook.Enums.FishingState;
 
 namespace AutoHook.SeFunctions;
 
