@@ -73,7 +73,7 @@ public partial class FishingManager : IDisposable
     private void Enable()
     {
         Svc.Framework.Update += OnFrameworkUpdate;
-        Svc.Chat.CheckMessageHandled += OnMessageDelegate;
+        Svc.Chat.ChatMessage += OnMessageDelegate;
         UpdateCatch?.Enable();
         _useActionHook?.Enable();
     }
@@ -81,7 +81,7 @@ public partial class FishingManager : IDisposable
     private void Disable()
     {
         Svc.Framework.Update -= OnFrameworkUpdate;
-        Svc.Chat.CheckMessageHandled -= OnMessageDelegate;
+        Svc.Chat.ChatMessage -= OnMessageDelegate;
         _useActionHook?.Disable();
         UpdateCatch?.Disable();
     }
@@ -151,8 +151,8 @@ public partial class FishingManager : IDisposable
 
     public string GetPresetName()
     {
-        var isMooching = Service.BaitManager.IsMooching() || _isMooching;
-        var currentBaitId = Service.BaitManager.GetCurrentBaitMoochId(_lastCatch?.Id, _isMooching);
+        var isMooching = Service.BaitManager.IsMooching() || _isMooching || Service.BaitManager.CurrentSwimBait is { };
+        var currentBaitId = Service.BaitManager.CurrentSwimBait is { } sb ? (int)sb : Service.BaitManager.GetCurrentBaitMoochId(_lastCatch?.Id, _isMooching);
 
         HookConfig? customHook = null;
         if (Presets.SelectedPreset != null)
@@ -173,8 +173,8 @@ public partial class FishingManager : IDisposable
 
     public HookConfig GetHookCfg()
     {
-        var isMooching = Service.BaitManager.IsMooching() || _isMooching;
-        var currentBaitId = Service.BaitManager.GetCurrentBaitMoochId(_lastCatch?.Id, _isMooching);
+        var isMooching = Service.BaitManager.IsMooching() || _isMooching || Service.BaitManager.CurrentSwimBait is { };
+        var currentBaitId = Service.BaitManager.CurrentSwimBait is { } sb ? (int)sb : Service.BaitManager.GetCurrentBaitMoochId(_lastCatch?.Id, _isMooching);
 
         HookConfig? custom = null;
         if (Presets.SelectedPreset != null)

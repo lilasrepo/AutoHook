@@ -81,7 +81,8 @@ public class AutoHook : IDalamudPlugin
         AutoHookIpc = new AutoHookIPC();
 
 #if (DEBUG)
-        OnOpenConfigUi();
+    if (Svc.ClientState.IsLoggedIn)
+            OnOpenConfigUi();
 #endif
     }
 
