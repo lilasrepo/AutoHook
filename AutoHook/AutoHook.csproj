@@ -10,7 +10,7 @@
 
     <PropertyGroup>
         <Authors>Det</Authors>
-        <Version>5.0.0.12</Version>
+        <Version>5.1.0.0</Version>
         <LangVersion>preview</LangVersion>
 		<GenerateErrorForMissingTargetingPacks>false</GenerateErrorForMissingTargetingPacks>
     </PropertyGroup>
@@ -30,7 +30,15 @@
     <ItemGroup>
         <ProjectReference Include="..\ECommons\ECommons\ECommons.csproj" />
         <PackageReference Include="HtmlAgilityPack" Version="1.12.4" />
+        <!-- porting-note(api13): new upstream dependency, adopted after checking it rather than
+             assuming. The package ships lib/net8.0-windows7.0 with an empty dependency group, so a
+             net9.0-windows project consumes it directly. (The other two packages upstream added -
+             croizat.clib and ECommons 3.2.x - are net10.0-windows7.0 only and were NOT adopted.)
+             CopyLocalLockFileAssemblies above is already set, which DalamudPackager needs or it
+             strips NuGet dlls out of bin/Release and the client throws at load. -->
+        <PackageReference Include="NotificationMasterAPI" Version="1.0.0.1" />
         <ProjectReference Include="..\PunishLib\PunishLib\PunishLib.csproj" />
+        <ProjectReference Include="..\AutoHook.FishSolver\AutoHook.FishSolver.csproj" />
     </ItemGroup>
 
     <ItemGroup>

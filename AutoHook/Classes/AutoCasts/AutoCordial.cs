@@ -1,9 +1,11 @@
-﻿using FFXIVClientStructs.FFXIV.Client.Game;
+using AutoHook.Conditions;
+using Dalamud.Interface.Utility.Raii;
+using FFXIVClientStructs.FFXIV.Client.Game;
+using System.ComponentModel;
 
 namespace AutoHook.Classes.AutoCasts;
 
-public class AutoCordial : BaseActionCast
-{
+public sealed class AutoCordial : BaseActionCast {
     private const uint CordialHiRecovery = 400;
     private const uint CordialHqRecovery = 350;
     private const uint CordialRecovery = 300;
@@ -12,9 +14,9 @@ public class AutoCordial : BaseActionCast
 
     public bool InvertCordialPriority;
 
-    public bool AllowOvercapIC;
-
     public bool IgnoreTimeWindow;
+
+    public ConditionSet? OvercapConditionSet { get; set; }
 
     public override bool RequiresTimeWindow() => !IgnoreTimeWindow;
 
@@ -38,70 +40,70 @@ public class AutoCordial : BaseActionCast
         (IDs.Item.HiCordial,        CordialHiRecovery)
     ];
 
-    public AutoCordial(bool isSpearFishing = false) : base(UIStrings.Cordial, IDs.Item.Cordial, ActionType.Item)
-    {
+    public AutoCordial(bool isSpearFishing = false) : base(IDs.Item.Cordial, ActionType.Item) {
         IsSpearFishing = isSpearFishing;
     }
 
-    public override string GetName()
-        => Name = UIStrings.Cordial;
-    public override bool CastCondition()
-    {
+    public override string GetName() => UIStrings.Cordial;
+
+    public override bool RestoresGp => true;
+
+    public override bool CastCondition() {
+        if (!EvaluateConditionSet())
+            return false;
+
         var cordialList = _cordialList;
 
         if (InvertCordialPriority)
             cordialList = _invertedList;
 
-        foreach (var (id, recovery) in cordialList)
-        {
-            if (!PlayerRes.HaveCordialInInventory(id))
+        foreach (var (id, recovery) in cordialList) {
+            if (!CheckNotOvercaped(recovery))
                 continue;
 
-            Id = id;
+            // TODO log this in replay and remove
+            if (!Service.WorldState.HaveCordialInInventory(id)) {
+                //Svc.Log.Debug($"No cordial (#{id}) in inventory");
+                continue;
+            }
 
-            return CheckNotOvercaped(recovery);
+            Id = id;
+            return true;
         }
 
         return false;
     }
 
-    public override void SetThreshold(int newCost)
-    {
+    public override void SetThreshold(int newCost) {
         if (newCost <= 0)
             GpThreshold = 0;
         else
             GpThreshold = newCost;
     }
 
-    private bool CheckNotOvercaped(uint recovery)
-    {
-        if (AllowOvercapIC && PlayerRes.HasStatus(IDs.Status.IdenticalCast))
+    private bool CheckNotOvercaped(uint recovery) {
+        if (ConditionSetOvercapHelper.EvaluateAllowsOvercap(OvercapConditionSet, Service.WorldState))
             return true;
 
-        return PlayerRes.GetCurrentGp() + recovery <= PlayerRes.GetMaxGp();
+        return Service.WorldState.CurrentGp + recovery <= Service.WorldState.MaxGp;
     }
 
-    protected override DrawOptionsDelegate DrawOptions => () =>
-    {
-        if (DrawUtil.Checkbox(UIStrings.AutoCastCordialPriority, ref InvertCordialPriority))
-        {
-            Service.Save();
-        }
+    protected override DrawOptionsDelegate DrawOptions => () => {
+        DrawUtil.Checkbox(UIStrings.AutoCastCordialPriority, ref InvertCordialPriority);
 
         if (!IsSpearFishing)
-        {
-            if (DrawUtil.Checkbox(UIStrings.Allow_Gp_Overcap, ref AllowOvercapIC))
-            {
-                Service.Save();
-            }
+            DrawUtil.Checkbox(UIStrings.CordialOutsideTimeWindow, ref IgnoreTimeWindow, UIStrings.CordialOutsideTimeWindowHelpText);
 
-            if (DrawUtil.Checkbox(UIStrings.CordialOutsideTimeWindow, ref IgnoreTimeWindow, UIStrings.CordialOutsideTimeWindowHelpText))
-            {
-                Service.Save();
-            }
+        using (ImRaii.PushId("CastConditions"))
+            DrawAutoCastConditions();
+
+        if (!IsSpearFishing) {
+            using (ImRaii.PushId("OvercapConditions"))
+                OvercapConditionSet = Ui.ConditionUi.DrawConditionSet("Overcap conditions", OvercapConditionSet, Ui.ConditionScope.AutoCordial, showAdvanced: true, showSubPrefix: true);
         }
     };
 
+    [DefaultValue(4)]
     public override int Priority { get; set; } = 4;
     public override bool IsExcludedPriority { get; set; } = false;
 }

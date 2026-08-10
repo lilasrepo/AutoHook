@@ -59,46 +59,46 @@
             : using a System.ComponentModel.TypeConverter
             : and then encoded with base64 encoding.
     -->
-  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
-    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+  <xsd:schema xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata" id="root">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace"/>
     <xsd:element name="root" msdata:IsDataSet="true">
       <xsd:complexType>
         <xsd:choice maxOccurs="unbounded">
           <xsd:element name="metadata">
             <xsd:complexType>
               <xsd:sequence>
-                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+                <xsd:element name="value" type="xsd:string" minOccurs="0"/>
               </xsd:sequence>
-              <xsd:attribute name="name" use="required" type="xsd:string" />
-              <xsd:attribute name="type" type="xsd:string" />
-              <xsd:attribute name="mimetype" type="xsd:string" />
-              <xsd:attribute ref="xml:space" />
+              <xsd:attribute name="name" use="required" type="xsd:string"/>
+              <xsd:attribute name="type" type="xsd:string"/>
+              <xsd:attribute name="mimetype" type="xsd:string"/>
+              <xsd:attribute ref="xml:space"/>
             </xsd:complexType>
           </xsd:element>
           <xsd:element name="assembly">
             <xsd:complexType>
-              <xsd:attribute name="alias" type="xsd:string" />
-              <xsd:attribute name="name" type="xsd:string" />
+              <xsd:attribute name="alias" type="xsd:string"/>
+              <xsd:attribute name="name" type="xsd:string"/>
             </xsd:complexType>
           </xsd:element>
           <xsd:element name="data">
             <xsd:complexType>
               <xsd:sequence>
-                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
-                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1"/>
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2"/>
               </xsd:sequence>
-              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
-              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
-              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
-              <xsd:attribute ref="xml:space" />
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1"/>
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3"/>
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4"/>
+              <xsd:attribute ref="xml:space"/>
             </xsd:complexType>
           </xsd:element>
           <xsd:element name="resheader">
             <xsd:complexType>
               <xsd:sequence>
-                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1"/>
               </xsd:sequence>
-              <xsd:attribute name="name" type="xsd:string" use="required" />
+              <xsd:attribute name="name" type="xsd:string" use="required"/>
             </xsd:complexType>
           </xsd:element>
         </xsd:choice>
@@ -502,9 +502,6 @@ Dies könnte 100SP einsparen, falls nur auf Naturköder abgezielt wird</value>
   <data name="Opens_Config_Window" xml:space="preserve">
     <value>Öffnet Config-Fenster</value>
   </data>
-  <data name="TabAutoCasts_When_Stack_Equals" xml:space="preserve">
-    <value>Wenn Stacks = </value>
-  </data>
   <data name="Use_Prize_Catch" xml:space="preserve">
     <value>Fetter Fang verwenden</value>
   </data>
@@ -609,9 +606,6 @@ Wenn Auto-Naturköder (Globales oder benutzerdefiniertes Preset) nicht aktiv ist
   </data>
   <data name="TabAutoCasts_DrawMakeShiftBait_HelpText" xml:space="preserve">
     <value>Möglicher Konflikt mit Auto-Thaliaks-Huld</value>
-  </data>
-  <data name="TabAutoCasts_DrawExtraOptionsThaliaksFavor_" xml:space="preserve">
-    <value>Wenn Stacks =</value>
   </data>
   <data name="TabAutoCasts_DrawThaliaksFavor_HelpText" xml:space="preserve">
     <value>Möglicher Konflikt mit Auto-Fischfinesse</value>
@@ -980,9 +974,6 @@ Schau in den Guide Tab für Erklärungen.</value>
   <data name="Reset_the_counter" xml:space="preserve">
     <value>Den Zähler zurücksetzen</value>
   </data>
-  <data name="Reset_counter_after_swapping_presets" xml:space="preserve">
-    <value>Setze Anschlag/Fisch-Zähler zurück, nach Preset Wechsel</value>
-  </data>
   <data name="Only_use_when_Cordial_is_available" xml:space="preserve">
     <value>Nur nutzen, wenn Kräutertrunk verfügbar ist</value>
   </data>
@@ -1253,6 +1244,9 @@ Du kannst wahlweise auch das Kommando /ahstart zum Starten verwenden. Auch in Ma
   <data name="SparefulHand" xml:space="preserve">
     <value>Fischnatur</value>
   </data>
+  <data name="EnableUsingSwimbaitGlobal" xml:space="preserve">
+    <value>Gespeicherten Köderfisch verwenden</value>
+  </data>
   <data name="Disabled" xml:space="preserve">
     <value>Deaktiviert</value>
   </data>
@@ -1316,6 +1310,9 @@ Du kannst wahlweise auch das Kommando /ahstart zum Starten verwenden. Auch in Ma
   <data name="AnimationCanceling" xml:space="preserve">
     <value>Animation abbrechen</value>
   </data>
+  <data name="ChumCancelHelp" xml:space="preserve">
+    <value></value>
+  </data>
   <data name="ClickToToggle" xml:space="preserve">
     <value>Klicken zum ein/aus schalten</value>
   </data>
@@ -1350,6 +1347,6 @@ Du kannst wahlweise auch das Kommando /ahstart zum Starten verwenden. Auch in Ma
     <value>Ordner Name</value>
   </data>
   <data name="GPlabel" xml:space="preserve">
-		<value>SP</value>
-	</data>
+    <value>SP</value>
+  </data>
 </root>

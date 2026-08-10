@@ -59,46 +59,46 @@
             : using a System.ComponentModel.TypeConverter
             : and then encoded with base64 encoding.
     -->
-  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
-    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+  <xsd:schema xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata" id="root">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace"/>
     <xsd:element name="root" msdata:IsDataSet="true">
       <xsd:complexType>
         <xsd:choice maxOccurs="unbounded">
           <xsd:element name="metadata">
             <xsd:complexType>
               <xsd:sequence>
-                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+                <xsd:element name="value" type="xsd:string" minOccurs="0"/>
               </xsd:sequence>
-              <xsd:attribute name="name" use="required" type="xsd:string" />
-              <xsd:attribute name="type" type="xsd:string" />
-              <xsd:attribute name="mimetype" type="xsd:string" />
-              <xsd:attribute ref="xml:space" />
+              <xsd:attribute name="name" use="required" type="xsd:string"/>
+              <xsd:attribute name="type" type="xsd:string"/>
+              <xsd:attribute name="mimetype" type="xsd:string"/>
+              <xsd:attribute ref="xml:space"/>
             </xsd:complexType>
           </xsd:element>
           <xsd:element name="assembly">
             <xsd:complexType>
-              <xsd:attribute name="alias" type="xsd:string" />
-              <xsd:attribute name="name" type="xsd:string" />
+              <xsd:attribute name="alias" type="xsd:string"/>
+              <xsd:attribute name="name" type="xsd:string"/>
             </xsd:complexType>
           </xsd:element>
           <xsd:element name="data">
             <xsd:complexType>
               <xsd:sequence>
-                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
-                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1"/>
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2"/>
               </xsd:sequence>
-              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
-              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
-              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
-              <xsd:attribute ref="xml:space" />
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1"/>
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3"/>
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4"/>
+              <xsd:attribute ref="xml:space"/>
             </xsd:complexType>
           </xsd:element>
           <xsd:element name="resheader">
             <xsd:complexType>
               <xsd:sequence>
-                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1"/>
               </xsd:sequence>
-              <xsd:attribute name="name" type="xsd:string" use="required" />
+              <xsd:attribute name="name" type="xsd:string" use="required"/>
             </xsd:complexType>
           </xsd:element>
         </xsd:choice>
@@ -497,7 +497,7 @@
     <value>打开配置窗口</value>
   </data>
   <data name="TabAutoCasts_When_Stack_Equals" xml:space="preserve">
-    <value>当捕鱼人之技的档数 = </value>
+    <value></value>
   </data>
   <data name="Use_Prize_Catch" xml:space="preserve">
     <value>使用大鱼猎手</value>
@@ -603,9 +603,6 @@
   </data>
   <data name="TabAutoCasts_DrawMakeShiftBait_HelpText" xml:space="preserve">
     <value>这可能与自动沙利亚克的恩宠冲突</value>
-  </data>
-  <data name="TabAutoCasts_DrawExtraOptionsThaliaksFavor_" xml:space="preserve">
-    <value>当捕鱼人之技的档数 =</value>
   </data>
   <data name="TabAutoCasts_DrawThaliaksFavor_HelpText" xml:space="preserve">
     <value>这可能与自动熟练渔技冲突</value>
@@ -947,6 +944,12 @@
   <data name="CollectHelpText" xml:space="preserve">
     <value>开始钓鱼时自动开启收藏品采集</value>
   </data>
+  <data name="Snagging" xml:space="preserve">
+    <value>钓组</value>
+  </data>
+  <data name="SnaggingHelpText" xml:space="preserve">
+    <value>开始钓鱼时自动激活钓组</value>
+  </data>
   <data name="RefreshWhenTimeIsLessThanOrEqual" xml:space="preserve">
     <value>当buff计时器小于或等于.. 时刷新</value>
   </data>
@@ -973,9 +976,6 @@
   </data>
   <data name="Reset_the_counter" xml:space="preserve">
     <value>重置计时器</value>
-  </data>
-  <data name="Reset_counter_after_swapping_presets" xml:space="preserve">
-    <value>交换预设后重置钩/鱼计数器</value>
   </data>
   <data name="Only_use_when_Cordial_is_available" xml:space="preserve">
     <value>仅在强心剂可用时使用</value>
@@ -1063,6 +1063,12 @@
   </data>
   <data name="AntiAfkOption" xml:space="preserve">
     <value>钓鱼时不会进入挂机状态</value>
+  </data>
+  <data name="AutoStartFishing" xml:space="preserve">
+    <value>当你没钓鱼时自动抛杆</value>
+  </data>
+  <data name="AutoStartFishingHelpText" xml:space="preserve">
+    <value>非钓鱼状态下自动抛杆。如果你一直开着AutoHook，就把这个关掉。</value>
   </data>
   <data name="SwapTreeNodeButtons" xml:space="preserve">
     <value>树形设置UI↔按钮设置UI</value>
@@ -1274,6 +1280,12 @@
   <data name="SparefulHand" xml:space="preserve">
     <value>熟练妙招</value>
   </data>
+  <data name="SparefulHand_Settings" xml:space="preserve">
+    <value>熟练妙招设置</value>
+  </data>
+  <data name="SparefulHand_HelpText" xml:space="preserve">
+    <value></value>
+  </data>
   <data name="DelayBeforeCancel" xml:space="preserve">
     <value>延迟歇竿(毫秒)</value>
   </data>
@@ -1442,6 +1454,9 @@
   <data name="Status_PrizeCatchNotRequired" xml:space="preserve">
     <value>跳过咬钩 - 大鱼猎手已激活，但提钩无需其激活</value>
   </data>
+  <data name="Multihook_Options" xml:space="preserve">
+    <value>加钩设置</value>
+  </data>
   <data name="StellarHookset" xml:space="preserve">
     <value>Stellar Hookset</value>
   </data>
@@ -1492,16 +1507,34 @@
   </data>
   <data name="Moving_" xml:space="preserve">
     <value>移动：</value>
-		<comment>Moving: PresetName</comment>
+    <comment>Moving: PresetName</comment>
   </data>
   <data name="MovingFolder_" xml:space="preserve">
     <value>移动文件夹：</value>
-		<comment>Moving folder: FolderName</comment>
+    <comment>Moving folder: FolderName</comment>
   </data>
   <data name="Reset_Counter_Bait_Swap" xml:space="preserve">
     <value>交换钓饵后重置计数器</value>
   </data>
   <data name="GPlabel" xml:space="preserve">
-		<value>采集力</value>
-	</data>
+    <value>采集力</value>
+  </data>
+  <data name="Dtr_Show" xml:space="preserve">
+    <value>在Dtr状态栏中显示</value>
+  </data>
+  <data name="Dtr_Show_Preset" xml:space="preserve">
+    <value>将当前预设显示在Dtr状态栏中</value>
+  </data>
+  <data name="Dtr_Help" xml:space="preserve">
+    <value>Dtr显示项的顺序可以在卫月设置中调整。</value>
+  </data>
+  <data name="Multihook" xml:space="preserve">
+    <value>加钩</value>
+  </data>
+  <data name="Use_Multihook" xml:space="preserve">
+    <value>使用加钩</value>
+  </data>
+  <data name="Multihook_Settings" xml:space="preserve">
+    <value>加钩设置</value>
+  </data>
 </root>

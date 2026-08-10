@@ -497,7 +497,7 @@ This could save you 100gp if going only for mooches</value>
     <value>Opens Config Window</value>
   </data>
   <data name="TabAutoCasts_When_Stack_Equals" xml:space="preserve">
-    <value>When Stacks = </value>
+    <value>When Stacks &gt;= </value>
   </data>
   <data name="Use_Prize_Catch" xml:space="preserve">
     <value>Use Prize Catch</value>
@@ -605,7 +605,7 @@ If Auto Mooch (Global or Custom Preset) is not enabled, the line will be casted 
     <value>This might conflict with Auto Thaliak's Favor</value>
   </data>
   <data name="TabAutoCasts_DrawExtraOptionsThaliaksFavor_" xml:space="preserve">
-    <value>When Stacks =</value>
+    <value>When Stacks &gt;=</value>
   </data>
   <data name="TabAutoCasts_DrawThaliaksFavor_HelpText" xml:space="preserve">
     <value>This might conflict with Auto MakeShift Bait</value>
@@ -947,6 +947,12 @@ Check the Guide Tab for Guides.</value>
   <data name="CollectHelpText" xml:space="preserve">
     <value>Collector's Glove will be activated when you start fishing</value>
   </data>
+  <data name="Snagging" xml:space="preserve">
+    <value>Snagging</value>
+  </data>
+  <data name="SnaggingHelpText" xml:space="preserve">
+    <value>Snagging will be activated when you start fishing</value>
+  </data>
   <data name="RefreshWhenTimeIsLessThanOrEqual" xml:space="preserve">
     <value>Refresh when buff timer is less than or equal to</value>
   </data>
@@ -975,7 +981,10 @@ Check the Guide Tab for Guides.</value>
     <value>Reset the counter</value>
   </data>
   <data name="Reset_counter_after_swapping_presets" xml:space="preserve">
-    <value>Reset hook/fish counter after swapping presets</value>
+    <value>Reset Hook/Fish Counter After Swapping Presets</value>
+  </data>
+  <data name="Reset_fish_caught_counter" xml:space="preserve">
+    <value>Reset Fish Caught Counter</value>
   </data>
   <data name="Only_use_when_Cordial_is_available" xml:space="preserve">
     <value>Only use when Cordial is available</value>
@@ -1415,6 +1424,9 @@ You may also use the command /ahstart to start. Try making a macro with it!</val
   <data name="AnimationCanceling" xml:space="preserve">
     <value>Animation Canceling</value>
   </data>
+  <data name="AnonymousPresets_Header" xml:space="preserve">
+    <value>Temporary presets ({0})</value>
+  </data>
   <data name="EnableRecastCancel" xml:space="preserve">
     <value>Enable line recasting animation cancel</value>
   </data>
@@ -1511,6 +1523,21 @@ You may also use the command /ahstart to start. Try making a macro with it!</val
   <data name="Status_PrizeCatchNotRequired" xml:space="preserve">
     <value>Skipping bite - Prize Catch is active, but NOT active is required for hooking</value>
   </data>
+  <data name="Multihook_Options" xml:space="preserve">
+    <value>Multihook Options</value>
+  </data>
+  <data name="OnlyHookWhenActiveMultihook" xml:space="preserve">
+    <value>Only hook when Multihook active</value>
+  </data>
+  <data name="OnlyHookWhenNOTActiveMultihook" xml:space="preserve">
+    <value>Only hook when Multihook not active</value>
+  </data>
+  <data name="Status_MultihookRequired" xml:space="preserve">
+    <value>Skipping bite - Multihook is required for hooking, but is not active</value>
+  </data>
+  <data name="Status_MultihookNotRequired" xml:space="preserve">
+    <value>Skipping bite - Multihook is active, but NOT active is required for hooking</value>
+  </data>
   <data name="StellarHookset" xml:space="preserve">
     <value>Stellar Hookset</value>
   </data>
@@ -1572,5 +1599,155 @@ You may also use the command /ahstart to start. Try making a macro with it!</val
   </data>
   <data name="GPlabel" xml:space="preserve">
     <value>GP</value>
+  </data>
+  <data name="Dtr_Show" xml:space="preserve">
+    <value>Show Dtr Bar</value>
+  </data>
+  <data name="Dtr_Show_Preset" xml:space="preserve">
+    <value>Show Preset Dtr Bar</value>
+  </data>
+  <data name="Dtr_Settings_Help_Text" xml:space="preserve">
+    <value>Left click Enable/Disable, Right click toggle UI.</value>
+  </data>
+  <data name="Dtr_Preset_Setting_Help" xml:space="preserve">
+    <value>Left click cycles forward, Right click backward cycles.</value>
+  </data>
+  <data name="Dtr_Help" xml:space="preserve">
+    <value>Dtr positional order can be changed within dalamud settings.</value>
+  </data>
+  <data name="Multihook" xml:space="preserve">
+    <value>Multihook</value>
+  </data>
+  <data name="Use_Multihook" xml:space="preserve">
+    <value>Use Multihook</value>
+  </data>
+  <data name="Multihook_Settings" xml:space="preserve">
+    <value>Multihook Settings</value>
+  </data>
+  <data name="Status_HookNotAvailableNormalWillBeUsed" xml:space="preserve">
+    <value>Not available. Normal hook will be used instead</value>
+  </data>
+  <data name="UseMultipleHooksByTimer" xml:space="preserve">
+    <value>Use multiple hook types by timer</value>
+  </data>
+  <data name="SwapStopRules" xml:space="preserve">
+    <value>Swap/Stop Rules:</value>
+  </data>
+  <data name="AetherialReduction_ReduceFish" xml:space="preserve">
+    <value>Reduce Fish (Aetherial Reduction)</value>
+  </data>
+  <data name="AetherialReduction_ReduceFishHelp" xml:space="preserve">
+    <value>Will stop fishing to reduce all reducible fish in your inventory before resuming fishing.</value>
+  </data>
+  <data name="AetherialReduction_NotUnlocked" xml:space="preserve">
+    <value>Aetherial reduction is not unlocked on this character</value>
+  </data>
+  <data name="AetherialReduction_Started" xml:space="preserve">
+    <value>Reducing fish...</value>
+  </data>
+  <data name="AetherialReduction_Complete" xml:space="preserve">
+    <value>Reduction complete. Resuming fishing</value>
+  </data>
+  <data name="AetherialReduction_Status_Quitting" xml:space="preserve">
+    <value>Quitting fishing...</value>
+  </data>
+  <data name="AetherialReduction_Status_Reducing" xml:space="preserve">
+    <value>Reducing fish...</value>
+  </data>
+  <data name="AetherialReduction_Status_Resuming" xml:space="preserve">
+    <value>Resuming fishing...</value>
+  </data>
+  <data name="OnlyUseWhenMakeshiftBaitActive" xml:space="preserve">
+    <value>Only use when Makeshift Bait active</value>
+  </data>
+  <data name="Previous" xml:space="preserve">
+    <value>Previous</value>
+  </data>
+  <data name="Current" xml:space="preserve">
+    <value>Current</value>
+  </data>
+  <data name="Next" xml:space="preserve">
+    <value>Next</value>
+  </data>
+  <data name="IgnoreFishSettingWhen" xml:space="preserve">
+    <value>Ignore fish setting when</value>
+  </data>
+  <data name="BlockMovementWhileFishingOption" xml:space="preserve">
+    <value>Block movement while fishing</value>
+  </data>
+  <data name="UseWithOceanFishing" xml:space="preserve">
+    <value>Use with ocean fishing</value>
+  </data>
+  <data name="UseForAllZoneTimes" xml:space="preserve">
+    <value>Use for all zones/times</value>
+  </data>
+  <data name="SelectZoneAndTime" xml:space="preserve">
+    <value>Select zone and time</value>
+  </data>
+  <data name="When" xml:space="preserve">
+    <value>When</value>
+  </data>
+  <data name="AutoOceanFish" xml:space="preserve">
+    <value>AutoOceanFish</value>
+  </data>
+  <data name="AutoOceanFishHelpText" xml:space="preserve">
+    <value>Handles everything on the boat itself: moving into position, casting, preset management.</value>
+  </data>
+  <data name="AutoOceanFish_Fallthrough" xml:space="preserve">
+    <value>Fall through to next priority if already acquired</value>
+  </data>
+  <data name="UseForGoal" xml:space="preserve">
+    <value>Use for goal</value>
+  </data>
+  <data name="OceanFishGoal_Points" xml:space="preserve">
+    <value>Points</value>
+  </data>
+  <data name="OceanFishGoal_Legendary" xml:space="preserve">
+    <value>Legendary</value>
+  </data>
+  <data name="OceanFishGoal_Achievements" xml:space="preserve">
+    <value>Achievements</value>
+  </data>
+  <data name="OceanFishGoal_Levelling" xml:space="preserve">
+    <value>Levelling</value>
+  </data>
+  <data name="SpectralRestOnGain" xml:space="preserve">
+    <value>Spectral Rest</value>
+  </data>
+  <data name="SpectralRestOnGainHelpText" xml:space="preserve">
+    <value>Rest and re-cast when a spectral current starts mid-cast</value>
+  </data>
+  <data name="AutoHandleCollectables" xml:space="preserve">
+    <value>Auto handle collectables</value>
+  </data>
+  <data name="AutoHandleCollectablesHelpText" xml:space="preserve">
+    <value>Auto accepts the prompt when a collectable appears. Can be overridden per preset in Extra Options. If overridden, will wait for the preset's conditions to be true before activating.</value>
+  </data>
+  <data name="AutoHandleCollectables_Preset_HelpText" xml:space="preserve">
+    <value>Will override the global auto collectables setting and only fire when this rule's conditions are met.</value>
+  </data>
+  <data name="PresetConditions_HelpText" xml:space="preserve">
+    <value>Reusable named conditions for this preset. Reference them within any condition set</value>
+  </data>
+  <data name="PresetConditions_DefinedInTab" xml:space="preserve">
+    <value>Defined in Conditions tab</value>
+  </data>
+  <data name="PresetConditions_Missing" xml:space="preserve">
+    <value>(condition missing)</value>
+  </data>
+  <data name="PresetConditions_NewName" xml:space="preserve">
+    <value>New condition</value>
+  </data>
+  <data name="Extra_PresetSwapLoop_Bailout" xml:space="preserve">
+    <value>Disabled plugin: extra rules created a preset swap loop ({0}).</value>
+  </data>
+  <data name="UnknownPresets" xml:space="preserve">
+    <value>Unknown Presets</value>
+  </data>
+  <data name="Opens_Replay_Window" xml:space="preserve">
+    <value>Opens Replay Window</value>
+  </data>
+  <data name="Prioritise" xml:space="preserve">
+    <value>Prioritise</value>
   </data>
 </root>

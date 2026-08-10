@@ -1,10 +1,12 @@
-﻿using Dalamud.Utility.Signatures;
+using Dalamud.Utility.Signatures;
 using FFXIVClientStructs.FFXIV.Client.Game.Event;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using FFXIVClientStructs.FFXIV.Client.Game.WKS;
 using Lumina.Excel.Sheets;
 using System.Runtime.InteropServices;
-using FishingState = AutoHook.Enums.FishingState;
+// porting-note(api13): the plugin-local FishingState enum is gone - upstream consumes the CS
+// one directly, and this build follows. Same members, same values in CS 6966.
+using FishingState = FFXIVClientStructs.FFXIV.Client.Game.Event.FishingState;
 
 namespace AutoHook.SeFunctions;
 

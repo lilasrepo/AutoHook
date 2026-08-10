@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <!-- porting-note(api13): retargeted net10.0 -> net9.0 to match the TC runtime. This project has
+         no PackageReference and no ProjectReference - it is pure solver logic - so the TFM is the
+         only thing that had to move. -->
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>preview</LangVersion>
+    <RootNamespace>AutoHook.FishSolver</RootNamespace>
+    <AssemblyName>AutoHook.FishSolver</AssemblyName>
+    <Platforms>x64</Platforms>
+    <PlatformTarget>x64</PlatformTarget>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Data\*.json" />
+  </ItemGroup>
+</Project>

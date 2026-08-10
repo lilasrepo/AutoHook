@@ -1,14 +1,38 @@
-﻿using System.Globalization;
-using AutoHook.IPC;
 using AutoHook.Spearfishing;
+using AutoHook.Ui;
 using Dalamud.Game.Command;
+using Dalamud.Game.Gui.Dtr;
+using Dalamud.Game.Text;
 using Dalamud.Plugin;
+using ECommons.EzDTR;
 using PunishLib;
+using System.Threading;
 
 namespace AutoHook;
 
-public class AutoHook : IDalamudPlugin
-{
+/* 
+ * TODO: 
+ * get rid of all other configs that could be conditions in auto casts et al. Migrate them to conditions.
+ * stop movement while fishing
+ * auto extract materia
+ * move around to reduce fish weary
+ */
+
+// porting-note(api13): upstream's entry point is croizat.clib's IAsyncDalamudPlugin pattern
+// (LoadAsync/DisposeAsync driven by CLibMain). clib publishes lib/net10.0-windows7.0 ONLY - all 82
+// published versions, 1.0.0 through 1.0.81, checked against nuget.org - so a net9 build cannot
+// reference it at any version. api13 Dalamud only offers the classic synchronous IDalamudPlugin,
+// which is what this build uses. The load/dispose bodies are upstream's, unchanged except that the
+// two awaits are resolved synchronously; Configuration.LoadAsync already uses ConfigureAwait(false),
+// and a Dalamud plugin constructor carries no synchronisation context, so blocking here is safe.
+public class AutoHook : IDalamudPlugin {
+    private readonly IDalamudPluginInterface pluginInterface;
+
+    public AutoHook(IDalamudPluginInterface pluginInterface) {
+        this.pluginInterface = pluginInterface;
+        Load();
+    }
+
     public string Name => UIStrings.AutoHook;
 
     internal static AutoHook Plugin = null!;
@@ -24,6 +48,7 @@ public class AutoHook : IDalamudPlugin
     private const string CmdAhBait = "/ahbait";
     private const string CmdBait = "/bait";
     private const string CmdAgPreset = "/agpreset";
+    private const string CmdAhReplay = "/ahreplay";
 
     private static readonly Dictionary<string, string> CommandHelp = new()
     {
@@ -36,63 +61,64 @@ public class AutoHook : IDalamudPlugin
         { CmdAhStart, UIStrings.Starts_AutoHook },
         { CmdAhBait, UIStrings.SwitchFishBait },
         { CmdBait, UIStrings.SwitchFishBait },
-        { CmdAgPreset, UIStrings.Set_agpreset_command }
+        { CmdAgPreset, UIStrings.Set_agpreset_command },
+        { CmdAhReplay, UIStrings.Opens_Replay_Window }
     };
 
     private static PluginUi _pluginUi = null!;
-
     private static AutoGig _autoGig = null!;
+    private static ReplayManagementWindow _replayManagement = null!;
 
-    public readonly FishingManager HookManager;
-
-    public AutoHookIPC AutoHookIpc;
-
-    public AutoHook(IDalamudPluginInterface pluginInterface)
-    {
+    private void Load() {
         ECommonsMain.Init(pluginInterface, this, Module.DalamudReflector, Module.ObjectFunctions);
-        Service.Initialize(pluginInterface);
-        PunishLibMain.Init(pluginInterface, "AutoHook",
-            new AboutPlugin() { Developer = "InitialDet", Sponsor = "https://ko-fi.com/initialdet" });
+        PunishLibMain.Init(pluginInterface, "AutoHook", new AboutPlugin() { Developer = "InitialDet & croizat", Sponsor = "https://ko-fi.com/initialdet" });
+        Service.InitAsync(pluginInterface).AsTask().GetAwaiter().GetResult();
+
         Plugin = this;
-        Service.BaitManager = new BaitManager();
-        Service.TugType = new SeTugType(Svc.SigScanner);
-        Svc.PluginInterface.UiBuilder.Draw += Service.WindowSystem.Draw;
-        Svc.PluginInterface.UiBuilder.OpenConfigUi += OnOpenConfigUi;
-        Svc.PluginInterface.UiBuilder.OpenMainUi += OnOpenConfigUi;
-
-        Service.Language = Svc.ClientState.ClientLanguage;
-
-        GameRes.Initialize();
-
-        Service.Configuration = Configuration.Load();
-        UIStrings.Culture = new CultureInfo(Service.Configuration.CurrentLanguage);
         _pluginUi = new PluginUi();
         _autoGig = new AutoGig();
+        _replayManagement = new ReplayManagementWindow();
 
-        foreach (var (command, help) in CommandHelp)
-        {
-            Svc.Commands.AddHandler(command, new CommandInfo(OnCommand)
-            {
+        foreach (var (command, help) in CommandHelp) {
+            Svc.Commands.AddHandler(command, new CommandInfo(OnCommand) {
                 HelpMessage = help
             });
         }
 
-        HookManager = new FishingManager();
-        AutoHookIpc = new AutoHookIPC();
+        GameRes.Initialize();
 
-#if (DEBUG)
-    if (Svc.ClientState.IsLoggedIn)
-            OnOpenConfigUi();
+        Svc.PluginInterface.UiBuilder.Draw += DrawUi;
+        Svc.PluginInterface.UiBuilder.OpenConfigUi += _pluginUi.Toggle;
+        Svc.PluginInterface.UiBuilder.OpenMainUi += _pluginUi.Toggle;
+
+        SetupDtr();
+
+#if DEBUG
+        if (Svc.ClientState.IsLoggedIn)
+            _pluginUi.Toggle();
 #endif
     }
 
-    private void OnCommand(string command, string args)
-    {
-        switch (command.Trim())
-        {
+    public void Dispose() {
+        _pluginUi.Dispose();
+        _autoGig.Dispose();
+        _replayManagement.Dispose();
+        Svc.PluginInterface.UiBuilder.Draw -= DrawUi;
+        Svc.PluginInterface.UiBuilder.OpenConfigUi -= _pluginUi.Toggle;
+        Svc.PluginInterface.UiBuilder.OpenMainUi -= _pluginUi.Toggle;
+
+        foreach (var (command, _) in CommandHelp)
+            Svc.Commands.RemoveHandler(command);
+
+        Service.DisposeAsync().AsTask().GetAwaiter().GetResult();
+        ECommonsMain.Dispose();
+    }
+
+    private void OnCommand(string command, string args) {
+        switch (command.Trim()) {
             case CmdAhCfg:
             case CmdAh:
-                OnOpenConfigUi();
+                _pluginUi.Toggle();
                 break;
             case CmdAhOn:
                 Svc.Chat.Print(UIStrings.AutoHook_Enabled);
@@ -114,7 +140,7 @@ public class AutoHook : IDalamudPlugin
                 SetPreset(args);
                 break;
             case CmdAhStart:
-                HookManager.StartFishing();
+                Service.FishManager.StartFishing();
                 break;
             case CmdBait:
             case CmdAhBait:
@@ -122,70 +148,61 @@ public class AutoHook : IDalamudPlugin
                 break;
             case CmdAgPreset:
                 SetGigPreset(args);
+                Service.ReplayManagement.Toggle();
+                break;
+            case CmdAhReplay:
+                _replayManagement.Toggle();
                 break;
         }
     }
 
-    private static void SwapBait(string args)
-    {
+    private static void SwapBait(string args) {
         var bait = GameRes.Baits.FirstOrDefault(f => f.Name.ToLower() == args.ToLower() || f.Id.ToString() == args);
-        Service.BaitManager.ChangeBait((uint)bait?.Id!);
+        FishingManager.ChangeBait((uint)bait?.Id!);
     }
 
-    private static void SetPreset(string presetName)
-    {
+    private static void SetPreset(string presetName) {
         var preset = Service.Configuration.HookPresets.CustomPresets.FirstOrDefault(x => x.PresetName == presetName);
-        if (preset == null)
-        {
+        if (preset == null) {
             Svc.Chat.Print(UIStrings.Preset_not_found);
             return;
         }
 
-        Service.Save();
-        Service.Configuration.HookPresets.SelectedPreset = preset;
+        Service.Configuration.HookPresets.Select(preset, FishingPresets.ReasonManual);
         Svc.Chat.Print(@$"{UIStrings.Preset_set_to_} {preset.PresetName}");
-        Service.Save();
+        Configuration.FlushAsync().GetAwaiter().GetResult();
     }
 
-    private static void SetGigPreset(string presetName)
-    {
-        try
-        {
+    private static void SetGigPreset(string presetName) {
+        try {
             var preset = Service.Configuration.AutoGigConfig.Presets.FirstOrDefault(x => x.PresetName == presetName);
-            if (preset == null)
-            {
+            if (preset == null) {
                 Svc.Chat.Print(@$"{UIStrings.Preset_not_found} - {presetName}");
                 return;
             }
 
-            Service.Save();
             Service.Configuration.AutoGigConfig.SelectedPreset = preset;
             Svc.Chat.Print(@$"{UIStrings.Gig_preset_set_to_} {preset.PresetName}");
-            Service.Save();
+            Configuration.FlushAsync().GetAwaiter().GetResult();
         }
-        catch (Exception e)
-        {
-            Svc.Log.Error(e.Message);
+        catch (Exception e) {
+            Svc.Log.Error(e, "[AutoHook] SetGigPreset failed.");
         }
     }
 
-    public void Dispose()
-    {
-        _pluginUi.Dispose();
-        _autoGig.Dispose();
-        HookManager.Dispose();
-        Service.Save();
-        Svc.PluginInterface.UiBuilder.Draw -= Service.WindowSystem.Draw;
-        Svc.PluginInterface.UiBuilder.OpenConfigUi -= OnOpenConfigUi;
-        Svc.PluginInterface.UiBuilder.OpenMainUi -= OnOpenConfigUi;
-
-        foreach (var (command, _) in CommandHelp)
-        {
-            Svc.Commands.RemoveHandler(command);
-        }
-
-        ECommonsMain.Dispose();
+    private static void DrawUi() {
+        Service.WindowSystem.Draw();
+        Service.FileDialog.Draw();
     }
 
-    private static void OnOpenConfigUi() => _pluginUi.Toggle();
+    // porting-note(api13): upstream builds two DTR bar entries with an EzDtr overload that
+    // takes a click EVENT (left vs right) plus a showCondition predicate. The ECommons
+    // revision pinned for this generation only offers EzDtr(Func<SeString>, Action?, string?)
+    // - no click type, no visibility predicate - so neither entry can be reproduced
+    // faithfully. Half-working bar entries that ignore DtrBarEnabled and cannot tell left
+    // from right would be worse than none, so both are dropped (B1). Everything they
+    // toggled is still reachable from the plugin window and the /ah commands.
+    // TODO(api13): restore when the pinned ECommons gains the richer EzDtr overload.
+    private void SetupDtr() {
+    }
 }

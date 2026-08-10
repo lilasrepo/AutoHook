@@ -1,19 +1,25 @@
-﻿using ECommons.MathHelpers;
-using System.Text.Json.Serialization;
+using ECommons.MathHelpers;
+using Newtonsoft.Json;
 using FishRow = Lumina.Excel.Sheets.FishParameter;
 using ItemRow = Lumina.Excel.Sheets.Item;
 
 namespace AutoHook.Classes;
 
-public class BaitFishClass : IComparable<BaitFishClass>
-{
+public class BaitFishClass : IComparable<BaitFishClass> {
     [JsonIgnore]
-    public string Name => Id switch
-    {
+    public string Name => Id switch {
         GameRes.AllMoochesId => UIStrings.All_Mooches,
         GameRes.AllBaitsId => UIStrings.All_Baits,
-        _ => MultiString.GetItemName((uint)Id)
+        <= 0 => UIStrings.None,
+        _ => Sheets.GetRow<ItemRow>((uint)Id).Name.ToString()
     };
+
+    [JsonIgnore]
+    // porting-note(api13): upstream resolves this through Svc.UnlockState, a Dalamud service that
+    // does not exist at this API level. Reporting false (B1) only costs the advisory chat warning
+    // about an unowned folklore tome - it never blocks fishing.
+    // TODO(api13): restore if the TC runtime ever exposes an unlock-state service.
+    public bool IsLocked => false;
 
     public int Id;
 
@@ -21,39 +27,27 @@ public class BaitFishClass : IComparable<BaitFishClass>
 
     // check the bait type
     [JsonIgnore]
-    public BaitType BaitType
-    {
-        get
-        {
-            return GameRes.Baits.Any(b => b.Id == Id) ? BaitType.Bait :
-                GameRes.Fishes.Any(f => f.Id == Id) ? BaitType.Mooch : BaitType.Unknown;
-        }
-    }
+    public BaitType BaitType => GameRes.Baits.Any(b => b.Id == Id) ? BaitType.Bait : GameRes.Fishes.Any(f => f.Id == Id) ? BaitType.Mooch : BaitType.Unknown;
 
-    public BaitFishClass(ItemRow data)
-    {
+    public BaitFishClass(ItemRow data) {
         Id = (int)data.RowId;
     }
 
-    public BaitFishClass(FishRow fishRow)
-    {
+    public BaitFishClass(FishRow fishRow) {
         var itemData = fishRow.Item.GetValueOrDefault<ItemRow>() ?? new ItemRow();
         LureMessage = fishRow.Unknown_70_1.ToString();
         Id = (int)itemData.RowId;
     }
 
-    public BaitFishClass(string name, int id)
-    {
+    public BaitFishClass(string name, int id) {
         Id = id;
     }
 
-    public BaitFishClass()
-    {
+    public BaitFishClass() {
         Id = -1;
     }
 
-    public BaitFishClass(Number id)
-    {
+    public BaitFishClass(Number id) {
         Id = id;
     }
 

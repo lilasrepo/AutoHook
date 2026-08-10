@@ -1,18 +1,16 @@
+using AutoHook.Conditions;
+using AutoHook.Conditions.Definitions;
+using AutoHook.Replay;
+using Newtonsoft.Json;
 using System.ComponentModel;
-using FFXIVClientStructs.FFXIV.Client.System.Framework;
 
 namespace AutoHook.Configurations;
 
-public class AutoCastsConfig
-{
+public class AutoCastsConfig {
     public bool EnableAll = false;
 
-    [DefaultValue(true)] public bool DontCancelMooch = true;
-
-    public TimeOnly StartTime = new(0);
-    public TimeOnly EndTime = new(0);
-
-    public bool OnlyCastDuringSpecificTime = false;
+    [DefaultValue(true)]
+    public bool DontCancelMooch = true;
 
     public bool RecastAnimationCancel;
     public bool TurnCollectOff;
@@ -23,6 +21,7 @@ public class AutoCastsConfig
     public AutoMooch CastMooch = new();
     public AutoChum CastChum = new();
     public AutoCollect CastCollect = new();
+    public AutoSnagging CastSnagging = new();
     public AutoCordial CastCordial = new();
     public AutoFishEyes CastFishEyes = new();
     public AutoMakeShiftBait CastMakeShiftBait = new();
@@ -30,10 +29,9 @@ public class AutoCastsConfig
     public AutoPrizeCatch CastPrizeCatch = new();
     public AutoThaliaksFavor CastThaliaksFavor = new();
     public AutoBigGameFishing CastBigGame = new();
-    //public AutoLures CastLures = new();
+    public AutoMultiHook CastMultihook = new();
 
-    private List<BaseActionCast> GetAutoCastOrder()
-    {
+    private List<BaseActionCast> GetAutoCastOrder() {
         var output = new List<BaseActionCast>
         {
             CastThaliaksFavor,
@@ -44,64 +42,97 @@ public class AutoCastsConfig
             CastFishEyes,
             CastPrizeCatch,
             //CastCollect,
-            CastBigGame
+            CastSnagging,
+            CastBigGame,
+            CastMultihook,
         }.OrderBy(x => x.Priority).ToList();
 
         return output;
     }
 
     public BaseActionCast? GetNextAutoCast(bool ignoreCurrentMooch)
-    {
+        => GetNextAutoCast(GetAutoCastOrder(), ignoreCurrentMooch);
+
+    public BaseActionCast? GetNextGpRestoringCast(bool ignoreCurrentMooch)
+        => GetNextAutoCast(GetAutoCastOrder().Where(action => action.RestoresGp), ignoreCurrentMooch);
+
+    private BaseActionCast? GetNextAutoCast(IEnumerable<BaseActionCast> order, bool ignoreCurrentMooch) {
         if (!EnableAll)
             return null;
 
-        BaseActionCast? cast = null;
-
-        var order = GetAutoCastOrder();
-
-        foreach (var action in order.Where(action => action.IsAvailableToCast(ignoreCurrentMooch)))
-        {
-            if (OnlyCastDuringSpecificTime && action.RequiresTimeWindow() && !InsideCastWindow())
+        foreach (var action in order.Where(action => action.IsAvailableToCast(ignoreCurrentMooch))) {
+            if (action.RequiresTimeWindow() && !TimeWindow.BackingSet.PassesOrUnconfigured()) {
+                LogAutoCastDecision(action, "Time window blocked");
                 continue;
+            }
 
-            Service.PrintDebug($"[AutoCast] Returning {action.Name}");
+            Service.PrintDebug($"[AutoCast] Returning {action.GetName()}");
             return action;
         }
 
-        return cast;
+        return null;
     }
 
-    private unsafe bool InsideCastWindow()
-    {
-        var clientTime = Framework.Instance()->ClientTime.EorzeaTime;
-        var eorzeaTime = TimeOnly.FromDateTime(DateTimeOffset.FromUnixTimeSeconds(clientTime).DateTime);
+    public bool TryCastGpRestoringAction(bool ignoreCurrentMooch = false)
+        => TryCastAction(GetNextGpRestoringCast(ignoreCurrentMooch), ignoreCurrentMooch: ignoreCurrentMooch);
 
-        return eorzeaTime.IsBetween(StartTime, EndTime);
-    }
+    [JsonProperty("TimeWindowConditionSet")]
+    [JsonConverter(typeof(SingleConditionConverter))]
+    public SingleCondition<TimeWindowCD, (bool Enabled, TimeOnly Start, TimeOnly End)> TimeWindow { get; set; } = new SingleCondition<TimeWindowCD, (bool Enabled, TimeOnly Start, TimeOnly End)>();
 
-    public bool TryCastAction(BaseActionCast? action, bool noDelay = false, bool ignoreCurrentMooch = false)
-    {
+    public bool TryCastAction(BaseActionCast? action, bool noDelay = false, bool ignoreCurrentMooch = false) {
         if (action == null || !EnableAll)
             return false;
 
-        if (OnlyCastDuringSpecificTime && action.RequiresTimeWindow() && !InsideCastWindow())
+        if (action.RequiresTimeWindow() && !TimeWindow.BackingSet.PassesOrUnconfigured()) {
+            LogAutoCastDecision(action, "Time window blocked");
             return false;
+        }
 
-        if (!action.Enabled || !action.IsAvailableToCast(ignoreCurrentMooch))
+        if (action.DescribeUnavailable(ignoreCurrentMooch) is { } unavailable) {
+            LogAutoCastDecision(action, unavailable);
             return false;
+        }
 
-        if (action.Id == IDs.Actions.Chum && ChumAnimationCancel)
+        if (action.Id == IDs.Actions.Chum && ChumAnimationCancel) {
             TryChumAnimationCancel();
-        else if (noDelay)
-            PlayerRes.CastActionNoDelay(action.Id, action.ActionType, action.GetName());
-        else
-            PlayerRes.CastActionDelayed(action.Id, action.ActionType, action.GetName());
+            LogAutoCastDecision(action);
+            return true;
+        }
 
+        if (noDelay) {
+            if (!PlayerRes.TryCastActionNoDelay(action.Id, action.ActionType, action.GetName())) {
+                LogAutoCastDecision(action, "Cast rejected by game");
+                return false;
+            }
+        }
+        else if (!PlayerRes.TryCastActionDelayed(action.Id, action.ActionType, action.GetName())) {
+            LogAutoCastDecision(action, "Cast rejected by game");
+            return false;
+        }
+
+        LogAutoCastDecision(action);
         return true;
     }
 
-    private void TryChumAnimationCancel()
-    {
+    private void LogAutoCastDecision(BaseActionCast action, string? failureReason = null) {
+        var trace = action.ConditionSet?.DescribeEvaluation(Service.WorldState, ConditionRegistry.Registry) ?? [];
+        if (action.RequiresTimeWindow() && TimeWindow.BackingSet is { } timeWindow) {
+            var global = timeWindow.DescribeEvaluation(Service.WorldState, ConditionRegistry.Registry);
+            if (global.Count > 0)
+                trace = [.. trace, .. global.Select(t => ($"Global {t.Label}", t.Result))];
+        }
+
+        var outcome = failureReason == null
+            ? $"Cast {action.GetName()}"
+            : $"Did not cast {action.GetName()} — {failureReason}";
+
+        DecisionLog.Start(UIStrings.Auto_Casts)
+            .WithConditionResults(trace)
+            .Chose(outcome);
+    }
+
+    private void TryChumAnimationCancel() {
         Service.PrintDebug("Trying to cancel chum animation");
         // Make sure Salvage is disabled before chum
 

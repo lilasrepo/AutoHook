@@ -2,10 +2,121 @@
 
 namespace AutoHook;
 
-public static class PluginChangelog
-{
+public static class PluginChangelog {
     public static readonly List<Version> Versions =
     [
+        new Version("6.0.0.83") {
+            Main = {
+                "Added an Intuition gained/lost event to conditions."
+            }
+        },
+        new Version("6.0.0.53")
+        {
+            Main =
+            {
+                "Added a global option to rest if a spectral occurs mid cast",
+            }
+        },
+        new Version("6.0.0.52")
+        {
+            Main =
+            {
+                "Added ocean zone time remaining condition",
+            }
+        },
+        new Version("6.0.0.48")
+        {
+            Main =
+            {
+                "Added preset wide conditions",
+            }
+        },
+        new Version("6.0.0.46")
+        {
+            Minor =
+            {
+                "Selecting the global preset should now reset the fish caught counter if the last preset had that option enabled",
+                "Presets that swap into themselves should now reset the fish caught counter when that option is enabled",
+                "Added reset fish caught counter to extra options",
+            }
+        },
+        new Version("6.0.0.45")
+        {
+            Minor =
+            {
+                "Fixed Auto Casts tab reorder arrows not visually updating",
+            }
+        },
+        new Version("6.0.0.44")
+        {
+            Minor =
+            {
+                "Anonymous IPC presets are now grouped together in the ui",
+            }
+        },
+        new Version("6.0.0.43")
+        {
+            Main =
+            {
+                "Added search bar to community presets",
+            }
+        },
+        new Version("6.0.0.41")
+        {
+            Main =
+            {
+                "Shift+click the logo to stop after the next fish or fishing attempt",
+            }
+        },
+        new Version("6.0.0.40")
+        {
+            Minor =
+            {
+                "Fixed Identical Cast/Surface Slap not being used when Swap Preset is active in Fish Caught config",
+            }
+        },
+        new Version("6.0.0.39")
+        {
+            Minor =
+            {
+                "Fixed AutoCast action list ordering",
+            }
+        },
+        new Version("6.0.0.38")
+        {
+            Minor =
+            {
+                "Greatly improved draw times",
+            }
+        },
+        new Version("6.0.0.30")
+        {
+            Minor =
+            {
+                "Fixed normal/mooch timeouts and added conditions to them",
+            }
+        },
+        new Version("6.0.0.28")
+        {
+            Main =
+            {
+                "Notify options now include toasts and echos",
+                "Mooch I and Mooch II availability are new conditions",
+            },
+        },
+        new Version("6.0.0.0")
+        {
+            Main =
+            {
+                "New conditional system for every* action",
+                "Auto aetherial reduction support",
+                "Auto ocean fishing support",
+                "Notification support",
+                "Collector's glove for spearfishing",
+                "Can delete folders now, and allows nesting folders",
+                "Added weather options for conditions",
+            }
+        },
         new Version("5.0.0.5")
         {
             Minor =
@@ -600,8 +711,7 @@ public static class PluginChangelog
         }
     ];
 
-    public class Version(string versionNumber)
-    {
+    public class Version(string versionNumber) {
         public string VersionNumber { get; set; } = versionNumber;
         public List<string> Main { get; set; } = [];
         public List<string> Minor { get; set; } = [];

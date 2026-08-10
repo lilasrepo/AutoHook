@@ -1,51 +1,92 @@
-﻿using System.Net.Http;
-using System.Text.RegularExpressions;
-using ECommons.Throttlers;
+﻿using ECommons.Throttlers;
 using HtmlAgilityPack;
+using System.Net.Http;
+using System.Text.RegularExpressions;
 
 namespace AutoHook.Utils;
 
-public class WikiPresets
-{
+public sealed class WikiFolderExport {
+    public required PresetFolder Root { get; init; }
+    public required List<PresetFolder> Folders { get; init; }
+    public required List<CustomPresetConfig> Presets { get; init; }
+}
+
+public static class WikiPresets {
     private const string BaseUrl = "https://github.com/PunishXIV/AutoHook/wiki";
     private const string RawWiki = "https://raw.githubusercontent.com/wiki/PunishXIV/AutoHook";
     private static readonly HttpClient httpClient = new(); // Reuse HttpClient
+    private static readonly Lazy<Regex> PresetBlockRegex = new(BuildPresetBlockRegex);
 
-    private static readonly string regex = @"```\s*(AH\s*[\s\S]*?)\s*```";
-    private static readonly string regexSf = @"```\s*(AHSF\s*[\s\S]*?)\s*```";
-
-    public static Dictionary<string, List<CustomPresetConfig>> Presets = [];
+    public static Dictionary<string, List<(WikiFolderExport? Folder, List<CustomPresetConfig> Presets)>> Presets = [];
     public static Dictionary<string, List<AutoGigConfig>> PresetsSf = [];
 
-    public static async Task ListWikiPages()
-    {
+    public static async Task ListWikiPages() {
         if (!EzThrottler.Throttle("WikiUpdate", 20000))
             return;
 
-        Presets.Clear();
-        PresetsSf.Clear();
-        var mdUrls = await GetWikiPageUrls(BaseUrl);
-        foreach (var mdUrl in mdUrls)
-        {
-            try
-            {
-                var base64 = await ExtractBase64FromWikiPage($"{RawWiki}/{mdUrl}.md");
+        try {
+            var newPresets = new Dictionary<string, List<(WikiFolderExport? Folder, List<CustomPresetConfig> Presets)>>();
+            var newPresetsSf = new Dictionary<string, List<AutoGigConfig>>();
+            var mdUrls = await GetWikiPageUrls(BaseUrl);
 
-                var list = base64.presets.Select(Configuration.ImportPreset).OfType<CustomPresetConfig>().ToList();
-                var listsf = base64.presetsSf.Select(Configuration.ImportPreset).OfType<AutoGigConfig>().ToList();
+            foreach (var mdUrl in mdUrls) {
+                try {
+                    var base64 = await ExtractBase64FromWikiPage($"{RawWiki}/{mdUrl}.md");
 
-                Presets.Add(mdUrl.Replace(@"-", @" "), list);
-                PresetsSf.Add(mdUrl.Replace(@"-", @" "), listsf);
+                    static (WikiFolderExport? Folder, List<CustomPresetConfig> Presets) selector(string x) {
+                        if (IsFolder(x)) {
+                            var imported = Configuration.ImportFolder(x) ?? throw new Exception("Failed to import"); // Kill wiki shouldn't have broken presets
+                            return (new WikiFolderExport {
+                                Root = imported.Folder,
+                                Folders = imported.Folders,
+                                Presets = imported.Presets
+                            }, imported.Presets);
+                        }
+                        var presets = Configuration.ImportPreset(x) ?? throw new Exception("Failed to import");
+
+                        return (null, [(CustomPresetConfig)presets]);
+                    }
+
+                    // porting-note(api13): upstream lets selector throw and relies on the per-page
+                    // catch below, on the stated assumption that "wiki shouldn't have broken
+                    // presets". One unimportable entry therefore silently drops the ENTIRE page,
+                    // including every sibling preset that would have imported fine - which is
+                    // exactly the failure this build hit and fixed once already. Isolate each entry
+                    // so a bad one costs only itself. (FORWARD_PORT_REFERENCE must-re-apply.)
+                    var list = base64.presets.SelectMany(x => {
+                        try {
+                            return (IEnumerable<(WikiFolderExport? Folder, List<CustomPresetConfig> Presets)>)[selector(x)];
+                        }
+                        catch (Exception ex) {
+                            Svc.Log.Debug($"Skipping unimportable wiki preset on {mdUrl}: {ex.Message}");
+                            return [];
+                        }
+                    }).ToList();
+                    var listsf = base64.presetsSf.Select(Configuration.ImportPreset).OfType<AutoGigConfig>().ToList();
+                    var key = mdUrl.Replace(@"-", @" ");
+                    newPresets.Add(key, list);
+                    newPresetsSf.Add(key, listsf);
+                }
+                catch (Exception e) {
+                    Svc.Log.Debug($"Can probably ignore: {e.Message}");
+                }
             }
-            catch (Exception e)
-            {
-                Svc.Log.Debug($"Can probably ignore: {e.Message}");
-            }
+
+            Presets = newPresets;
+            PresetsSf = newPresetsSf;
+        }
+        catch (Exception e) {
+            Svc.Log.Error(e, "Failed to fetch wiki presets.");
         }
     }
 
-    static async Task<List<string>> GetWikiPageUrls(string url)
-    {
+    static bool IsFolder(string preset)
+        => preset.StartsWith(Configuration.ExportPrefixFolder) || preset.StartsWith(Configuration.ExportPrefixFolderV2);
+
+    static bool IsSpearfishing(string preset)
+        => preset.StartsWith(Configuration.ExportPrefixSf) || preset.StartsWith(Configuration.ExportPrefixSf2);
+
+    static async Task<List<string>> GetWikiPageUrls(string url) {
         var pageUrls = new List<string>();
         var htmlDoc = new HtmlDocument();
         htmlDoc.LoadHtml(await httpClient.GetStringAsync(url));
@@ -61,17 +102,17 @@ public class WikiPresets
         return pageUrls;
     }
 
-    static async Task<(List<string> presets, List<string> presetsSf)> ExtractBase64FromWikiPage(string url)
-    {
-        string wikiPageContent = await httpClient.GetStringAsync(url);
-        var presets = Regex.Matches(wikiPageContent, regex)
-            .Select(match => match.Groups[1].Value)
-            .ToList();
-
-        var presetsSf = Regex.Matches(wikiPageContent, regexSf)
-            .Select(match => match.Groups[1].Value)
-            .ToList();
+    static async Task<(List<string> presets, List<string> presetsSf)> ExtractBase64FromWikiPage(string url) {
+        var wikiPageContent = await httpClient.GetStringAsync(url);
+        var blocks = PresetBlockRegex.Value.Matches(wikiPageContent).Select(match => match.Groups[1].Value.Trim()).ToList();
+        var presets = blocks.Where(b => !IsSpearfishing(b)).ToList();
+        var presetsSf = blocks.Where(IsSpearfishing).ToList();
 
         return (presets, presetsSf);
+    }
+
+    static Regex BuildPresetBlockRegex() {
+        var prefixPattern = string.Join("|", Configuration.ExportPrefixes.OrderByDescending(p => p.Length).Select(Regex.Escape));
+        return new Regex($@"```\s*((?:{prefixPattern})[\s\S]*?)\s*```", RegexOptions.Multiline | RegexOptions.Compiled);
     }
 }
