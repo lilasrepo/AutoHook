@@ -1,5 +1,6 @@
 using AutoHook.Spearfishing;
 using AutoHook.Ui;
+using clib;
 using Dalamud.Game.Command;
 using Dalamud.Game.Gui.Dtr;
 using Dalamud.Game.Text;
@@ -71,6 +72,10 @@ public class AutoHook : IDalamudPlugin {
 
     private void Load() {
         ECommonsMain.Init(pluginInterface, this, Module.DalamudReflector, Module.ObjectFunctions);
+        // porting-note(api13): restored now that croizat.clib is vendored in-tree (net9-retargeted)
+        // instead of being assumed net10-only and dropped. Only CLibModule.Automation, matching
+        // upstream exactly - Svc.Navmesh/Svc.Windows are unconditional inside clib's own Svc.Init.
+        CLibMain.Init(pluginInterface, this, CLibModule.Automation);
         PunishLibMain.Init(pluginInterface, "AutoHook", new AboutPlugin() { Developer = "InitialDet & croizat", Sponsor = "https://ko-fi.com/initialdet" });
         Service.InitAsync(pluginInterface).AsTask().GetAwaiter().GetResult();
 
@@ -111,6 +116,7 @@ public class AutoHook : IDalamudPlugin {
             Svc.Commands.RemoveHandler(command);
 
         Service.DisposeAsync().AsTask().GetAwaiter().GetResult();
+        CLibMain.Dispose();
         ECommonsMain.Dispose();
     }
 
@@ -193,6 +199,7 @@ public class AutoHook : IDalamudPlugin {
     private static void DrawUi() {
         Service.WindowSystem.Draw();
         Service.FileDialog.Draw();
+        OceanFishingSpotOverlay.Draw();
     }
 
     // porting-note(api13): upstream builds two DTR bar entries with an EzDtr overload that

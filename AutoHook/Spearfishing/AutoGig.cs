@@ -1,4 +1,4 @@
-﻿﻿using AutoHook.Spearfishing.Struct;
+﻿using AutoHook.Spearfishing.Struct;
 using Dalamud.Bindings.ImGui;
 using Dalamud.Game.ClientState.Objects.Enums;
 using Dalamud.Interface.Colors;
@@ -133,9 +133,13 @@ internal class AutoGig : Window, IDisposable
             ImGui.End();
         }
 
-        if (_gigCfg is { AutoGigEnabled: true, })
-        {
-            if (!PlayerRes.HasStatus(IDs.Status.NaturesBounty) && _gigCfg.NatureBountyBeforeFish)
+        if (_gigCfg is { AutoGigEnabled: true, }) {
+            var selectedPreset = _gigCfg.SelectedPreset;
+
+            if (selectedPreset is { KeepCollectorsGloveOn: true } && !Service.WorldState.Player.HasStatus(IDs.Status.CollectorsGlove))
+                PlayerRes.CastActionDelayed(IDs.Actions.Collect, actionName: UIStrings.Collect);
+
+            if (!Service.WorldState.Player.HasStatus(IDs.Status.NaturesBounty) && _gigCfg.NatureBountyBeforeFish)
                 PlayerRes.CastActionDelayed(IDs.Actions.NaturesBounty);
 
             GigFish(_addon->Fish1, _addon->Fish1Node);
@@ -171,7 +175,7 @@ internal class AutoGig : Window, IDisposable
             return;
         }
 
-        if (!PlayerRes.HasStatus(IDs.Status.NaturesBounty) && fish.UseNaturesBounty)
+        if (!Service.WorldState.Player.HasStatus(IDs.Status.NaturesBounty) && fish.UseNaturesBounty)
             PlayerRes.CastActionDelayed(IDs.Actions.NaturesBounty);
 
         var centerX = (_uiSize.X / 2);

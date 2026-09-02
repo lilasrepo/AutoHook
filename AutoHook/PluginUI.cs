@@ -1,3 +1,4 @@
+using AutoHook.Enums;
 using AutoHook.Ui;
 using Dalamud.Bindings.ImGui;
 using Dalamud.Interface;
@@ -179,7 +180,7 @@ public class PluginUi : Window, IDisposable {
             if (!Service.Configuration.PluginEnabled) {
                 ImGui.TextColored(ImGuiColors.DalamudGrey, UIStrings.Plugin_Disabled);
             }
-            else if (Service.WorldState.FishingState == FishingState.NotFishing) {
+            else if (Service.WorldState.Fishing.FishingState == Api13FishingState.None) {
                 try {
                     var preset = _presets.SelectedPreset;
                     if (preset == null) {

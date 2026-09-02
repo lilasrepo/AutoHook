@@ -1,5 +1,4 @@
 using Dalamud.Game.ClientState.Objects.SubKinds;
-using Dalamud.Game.ClientState.Objects.Types;
 using Dalamud.Game.Inventory.InventoryEventArgTypes;
 using AutoHook.SeFunctions;
 using Dalamud.Hooking;
@@ -115,7 +114,7 @@ public sealed class WorldStateUpdater : IDisposable {
 
     // push current game state into WorldState. call every frame.
     public unsafe void Update() {
-        if (Svc.ClientState.LocalPlayer?.ClassJob.RowId is not 18 || Svc.Objects.LocalPlayer is null)
+        if (Svc.ClientState.LocalPlayer?.ClassJob.RowId is not 18 || Svc.ClientState.LocalPlayer is null)
             return;
 
         var ws = Service.WorldState;
@@ -131,7 +130,7 @@ public sealed class WorldStateUpdater : IDisposable {
             fwk->FrameDeltaTime,
             fwk->GameSpeedMultiplier)));
 
-        var lp = Svc.Objects.LocalPlayer;
+        var lp = Svc.ClientState.LocalPlayer;
         var gp = lp?.CurrentGp ?? 0;
         var maxGp = lp?.MaxGp ?? 0;
         if (ws.Player.CurrentGp != gp || ws.Player.MaxGp != maxGp)
@@ -190,7 +189,7 @@ public sealed class WorldStateUpdater : IDisposable {
            || previous == FishingState.LureFishing && current != FishingState.LureFishing;
 
     public void RefreshFishingStateSnapshot() {
-        if (Svc.ClientState.LocalPlayer?.ClassJob.RowId is not 18 || Svc.Objects.LocalPlayer is null)
+        if (Svc.ClientState.LocalPlayer?.ClassJob.RowId is not 18 || Svc.ClientState.LocalPlayer is null)
             return;
 
         var ws = Service.WorldState;
@@ -212,7 +211,7 @@ public sealed class WorldStateUpdater : IDisposable {
 
     private void UpdateStatuses(WorldState ws) {
         _statusScratch.Clear();
-        if (Svc.Objects.LocalPlayer is { StatusList: var statuses }) {
+        if (Svc.ClientState.LocalPlayer is { StatusList: var statuses }) {
             foreach (var buff in statuses)
                 _statusScratch[buff.StatusId] = (buff.RemainingTime, buff.Param);
         }

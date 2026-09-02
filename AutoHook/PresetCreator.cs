@@ -124,7 +124,7 @@ public class PresetCreator {
         var plan = GameRes.FishSolver.Solve(
             _selectedTargetFish!.ItemId,
             fisherLevel,
-            (int)ws.MaxGp,
+            (int)ws.Player.MaxGp,
             cordials);
 
         if (plan == null) {
@@ -205,7 +205,7 @@ public class PresetCreator {
         var presetName = ResolvePresetName(AutoV2Tag);
         var fisherLevel = Svc.PlayerState.GetClassJobLevel(18, shouldGetSynced: false);
 
-        var preset = GameRes.FishSolver.BuildPreset(_selectedTargetFish.ItemId, fisherLevel, (int)ws.MaxGp, presetName, cordials);
+        var preset = GameRes.FishSolver.BuildPreset(_selectedTargetFish.ItemId, fisherLevel, (int)ws.Player.MaxGp, presetName, cordials);
         if (preset == null) {
             Service.PrintDebug("[FishSolver] Failed to build preset.");
             return;
@@ -362,12 +362,8 @@ public class PresetCreator {
             initBaitCfg.SetBiteAndHookType(fishTarget.BiteType, fishTarget!.HookType, isIntuition);
 
             if (fishTarget.IsLureFish) {
-                ref var cl = ref initBaitCfg.NormalHook.CastLures;
-                cl.Enabled = true;
-                cl.CancelAttempt = true;
-                cl.LureTarget = LureTarget.Special;
-                cl.ConditionSet = Configuration.ConditionSetBuilder.SingleStatus(IDs.Status.PrizeCatch);
-                cl.Id = fishTarget!.HookType == HookType.Powerful ? IDs.Actions.AmbitiousLure : IDs.Actions.ModestLure;
+                var actionId = fishTarget!.HookType == HookType.Powerful ? IDs.Actions.AmbitiousLure : IDs.Actions.ModestLure;
+                initBaitCfg.NormalHook.CastLures.ConfigureSpecialLure(actionId, Configuration.ConditionSetBuilder.SingleStatus(IDs.Status.PrizeCatch));
             }
 
             if (_includeTimers) {

@@ -1,0 +1,126 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>net9.0-windows</TargetFramework>
+        <Platforms>x64</Platforms>
+        <LangVersion>preview</LangVersion>
+        <Nullable>enable</Nullable>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+        <RestorePackagesWithLockFile>false</RestorePackagesWithLockFile>
+        <PackageId>croizat.$(AssemblyName)</PackageId>
+        <Title>clib</Title>
+        <ProduceReferenceAssembly>false</ProduceReferenceAssembly>
+        <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    </PropertyGroup>
+
+    <PropertyGroup>
+        <!-- porting-note(api13): vendored copy of croizat.clib (upstream SHA b1789257, 2026-08-30).
+             clib publishes lib/net10.0-windows7.0 ONLY on nuget.org (all 82 versions checked), so a
+             net9 project cannot reference it as a package - it is retargeted to net9.0-windows and
+             built in-tree instead, the same way ECommons/PunishLib are vendored above. -->
+        <DalamudLibPath>$(MSBuildThisFileDirectory)..\..\..\TC_ok\_dalamud_api13\</DalamudLibPath>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <PackageReference Include="AllaganLib.GameSheets" Version="1.3.12" />
+      <PackageReference Include="LuminaSupplemental.Excel" Version="3.0.7" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!-- porting-note(api13): the "Items" service feature (armoire/dresser/glamour-mirage
+             tracking) is dead weight for every current vendoring consumer - AutoHook's upstream
+             AutoHook.cs itself only ever calls CLibMain.Init(..., CLibModule.Automation), never
+             .Items or .SheetManager (verified against JP/AutoHook HEAD). Removed as one unit
+             because ItemService/DresserService/ArmoireService/MirageStoreSetItemExtensions form a
+             single dependency cluster; Svc.cs's Items property is stubbed out to match (see
+             Services/Svc.cs). CS 6966 gaps: ItemFinderModule has no CabinetItemUnlockBits or
+             GlamourDresserItemSetUnlockBits, MirageManager has no IsSetSlotUnlocked, and
+             MirageStoreSetItem/AnimaWeaponItem/FittingShopItemSet have no ExcelPage/RowOffset
+             (Lumina.Excel shape drift) - checked against TC_ok/_dalamud_api13 metadata, not assumed. -->
+        <Compile Remove="Services\ArmoireService.cs" />
+        <Compile Remove="Services\DresserService.cs" />
+        <Compile Remove="Services\ItemService.cs" />
+        <Compile Remove="Extensions\Lumina\MirageStoreSetItemExtensions.cs" />
+        <Compile Remove="Extensions\Lumina\AnimaWeaponItemExtensions.cs" />
+        <Compile Remove="Extensions\Lumina\FittingShopItemSetExtensions.cs" />
+        <!-- Lumina/PvPSeriesExtensions.cs's own cache-builder calls MirageStoreSetItem.Items, the
+             same removed member above - cut alongside it (zero other consumers of AttireItems). -->
+        <Compile Remove="Extensions\Lumina\PvPSeriesExtensions.cs" />
+
+        <!-- porting-note(api13): Lumina.Excel.Sheets.ClassJobCategory/ClassJob shape drift on this
+             generation (no ExcelPage/RowOffset on ClassJobCategory, no JobType on ClassJob) - checked
+             against TC_ok/_dalamud_api13/Lumina.Excel.dll, not assumed. Nothing in AutoHook's kept
+             code calls into this cluster (ItemHandle.CanEquip, the one caller, is removed below for
+             the same reason) so it is cut as one unit rather than chased member-by-member. -->
+        <Compile Remove="Extensions\Lumina\ClassJobCategoryExtensions.cs" />
+        <Compile Remove="Extensions\Lumina\ClassJobExtensions.cs" />
+        <!-- Extensions\Dalamud\IDataManagerExtensions.cs is NOT removed - GetRef<T>/GetSheet<T>/etc.
+             in that same file are load-bearing for Utils\Coords.cs and Utils\ItemHandle.cs. Only its
+             two broken methods (GetMoochableFish, GetActionsForJob - both dead, zero callers) are
+             deleted directly from the file; see the file itself. -->
+
+        <!-- porting-note(api13): each of these Extensions/Lumina files is a self-contained CS-6966
+             gap (ContentFinderCondition missing CrystallineConflict*/IsInDutyFinder columns,
+             EquipRaceCategory/SatisfactionNpc missing ExcelPage/RowOffset) with zero consumers
+             anywhere else in the vendored tree (grepped before removal) - dead surface, not needed
+             by AutoOceanFish/AetherialReduction/OceanFishingSpotOverlay or by clib's own core. -->
+        <Compile Remove="Extensions\Lumina\ContentFinderConditionExtensions.cs" />
+        <Compile Remove="Extensions\Lumina\EquipRaceCategoryExtensions.cs" />
+        <Compile Remove="Extensions\Lumina\SatisfactionNpcExtensions.cs" />
+        <Compile Remove="Extensions\Lumina\ItemExtensions.cs" />
+
+        <!-- porting-note(api13): self-contained CS-6966 gaps (AtkUnitBase/AddonAreaMap has no
+             MouseCoords, AgentTryon has no TryOnItems/TryOnItemsChanged, InfoProxyPartyMember has no
+             DisbandParty/LeaveParty, AgentLetter does not exist) with zero consumers outside their
+             own file - dead surface for a fishing plugin. -->
+        <Compile Remove="Extensions\ClientStructs\Addons\AddonAreaMapExtensions.cs" />
+        <Compile Remove="Extensions\ClientStructs\Agents\AgentTryonExtensions.cs" />
+        <Compile Remove="Extensions\Dalamud\IPartyListExtensions.cs" />
+        <Compile Remove="Extensions\ClientStructs\InfoProxyLetterExtensions.cs" />
+
+        <!-- porting-note(api13): upstream's own automation-task/UI feature (Utils/PublicEvent.cs,
+             public-instance FATE/CE tracking) - not used by any of the AutoHook call sites this
+             vendoring exists to restore, and its own errors (WKSMechaEventData.Name,
+             AgentMap.UpdateEventMapMarkers missing on CS 6966) are unrelated CS-6966 gaps. -->
+        <Compile Remove="Utils\PublicEvent.cs" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <Reference Include="Dalamud">
+            <HintPath>$(DalamudLibPath)Dalamud.dll</HintPath>
+            <Private>False</Private>
+        </Reference>
+        <Reference Include="Dalamud.Common">
+            <HintPath>$(DalamudLibPath)Dalamud.Common.dll</HintPath>
+            <Private>False</Private>
+        </Reference>
+        <Reference Include="Dalamud.Bindings.ImGui">
+            <HintPath>$(DalamudLibPath)Dalamud.Bindings.ImGui.dll</HintPath>
+            <Private>False</Private>
+        </Reference>
+        <Reference Include="Dalamud.Bindings.ImPlot">
+            <HintPath>$(DalamudLibPath)Dalamud.Bindings.ImPlot.dll</HintPath>
+            <Private>False</Private>
+        </Reference>
+        <Reference Include="FFXIVClientStructs">
+            <HintPath>$(DalamudLibPath)FFXIVClientStructs.dll</HintPath>
+            <Private>False</Private>
+        </Reference>
+        <Reference Include="InteropGenerator.Runtime">
+            <HintPath>$(DalamudLibPath)InteropGenerator.Runtime.dll</HintPath>
+            <Private>False</Private>
+        </Reference>
+        <Reference Include="Lumina">
+            <HintPath>$(DalamudLibPath)Lumina.dll</HintPath>
+            <Private>False</Private>
+        </Reference>
+        <Reference Include="Lumina.Excel">
+            <HintPath>$(DalamudLibPath)Lumina.Excel.dll</HintPath>
+            <Private>False</Private>
+        </Reference>
+        <Reference Include="Newtonsoft.Json">
+            <HintPath>$(DalamudLibPath)Newtonsoft.Json.dll</HintPath>
+            <Private>False</Private>
+        </Reference>
+    </ItemGroup>
+</Project>

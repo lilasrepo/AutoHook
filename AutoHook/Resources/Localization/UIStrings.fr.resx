@@ -1396,4 +1396,7 @@ Vous pouvez également utiliser la commande /ahstart pour commencer. Essayez de 
   <data name="TurnCollectOffWithoutAnimCancel" xml:space="preserve">
     <value>Désactive le Gant du collectionneur quand Collection automatique est désactivé</value>
   </data>
+  <data name="ClickToToggle" xml:space="preserve">
+    <value>Cliquez pour activer/désactiver</value>
+  </data>
 </root>

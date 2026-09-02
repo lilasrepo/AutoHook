@@ -53,8 +53,22 @@ public static class ConfigurationJsonMigrator {
         }
 
         // v6 -> v7: swimbait count thresholds, spareful hand swimbait limits, surface slap / identical cast enabled
-        if (version < Configuration.LatestVersion) {
+        if (version < 7) {
             MigrateV7(root);
+            root["Version"] = 7;
+            version = 7;
+        }
+
+        // v7 -> v8: nested lure type/target configs
+        if (version < 8) {
+            MigrateV8(root);
+            root["Version"] = 8;
+            version = 8;
+        }
+
+        // v8 -> v9: ActionCooldownCD gets chk
+        if (version < Configuration.LatestVersion) {
+            MigrateV9(root);
             root["Version"] = Configuration.LatestVersion;
         }
 
@@ -77,13 +91,16 @@ public static class ConfigurationJsonMigrator {
         }
     }
 
-    // migrate one exported preset JSON (AH4/AH6/etc.) to latest schema before deserialize.
-    public static string MigrateImportedPreset(string json) {
+    // migrate up to LatestFishingPresetSchema, fromVersion is from the prefix
+    public static string MigrateImportedPreset(string json, int fromVersion = 0) {
         try {
+            if (fromVersion >= Configuration.LatestFishingPresetSchema.Version)
+                return json;
+
             if (JToken.Parse(json) is not JObject preset)
                 return json;
 
-            MigrateImportedPresetObject(preset);
+            MigrateImportedPresetObject(preset, fromVersion);
             return preset.ToString(Formatting.None);
         }
         catch {
@@ -91,12 +108,13 @@ public static class ConfigurationJsonMigrator {
         }
     }
 
-    public static string MigrateImportedFolderExport(string json) {
+    public static string MigrateImportedFolderExport(string json, int fromVersion = 0) {
         try {
             if (JToken.Parse(json) is not JObject root)
                 return json;
 
-            MigrateImportedFolderExportObject(root);
+            // Legacy folder payloads may contain pre-current preset JSON.
+            MigrateImportedFolderExportObject(root, fromVersion);
             return root.ToString(Formatting.None);
         }
         catch {
@@ -104,25 +122,49 @@ public static class ConfigurationJsonMigrator {
         }
     }
 
-    private static void MigrateImportedFolderExportObject(JObject folderExport) {
+    private static void MigrateImportedFolderExportObject(JObject folderExport, int fromVersion) {
         foreach (var token in EnumerateArray(folderExport["Presets"])) {
             if (token is JObject presetObj)
-                MigrateImportedPresetObject(presetObj);
+                MigrateImportedPresetObject(presetObj, fromVersion);
         }
 
         foreach (var token in EnumerateArray(folderExport["ChildFolders"])) {
             if (token is JObject childObj)
-                MigrateImportedFolderExportObject(childObj);
+                MigrateImportedFolderExportObject(childObj, fromVersion);
         }
     }
 
-    private static void MigrateImportedPresetObject(JObject preset) {
-        MigratePresetExtra(preset);
-        MigratePresetConditions(preset);
-        MigratePresetSwimbaitCountThreshold(preset);
-        MigratePresetSparefulHandSwimbaitLimits(preset);
-        MigratePresetFishCaughtActionEnabled(preset);
+    private static void MigrateImportedPresetObject(JObject preset, int fromVersion) {
+        foreach (var migration in PresetImportMigrations) {
+            if (fromVersion < migration.ToVersion)
+                migration.Apply(preset);
+        }
     }
+
+    private interface IPresetImportMigration {
+        int ToVersion { get; }
+        void Apply(JObject preset);
+    }
+
+    private sealed class PresetImportMigration(int toVersion, Action<JObject> apply) : IPresetImportMigration {
+        public int ToVersion { get; } = toVersion;
+        public void Apply(JObject preset) => apply(preset);
+    }
+
+    private static readonly IPresetImportMigration[] PresetImportMigrations =
+    [
+        new PresetImportMigration(6, preset => {
+            MigratePresetExtra(preset);
+            MigratePresetConditions(preset);
+        }),
+        new PresetImportMigration(7, preset => {
+            MigratePresetSwimbaitCountThreshold(preset);
+            MigratePresetSparefulHandSwimbaitLimits(preset);
+            MigratePresetFishCaughtActionEnabled(preset);
+        }),
+        new PresetImportMigration(8, MigratePresetLuresToNested),
+        new PresetImportMigration(9, MigratePresetActionCooldownChecks),
+    ];
 
     private static void MigrateV2ToV3Json(JObject root) {
         if (root["BaitPresetList"] is not JArray baitPresetList || baitPresetList.Count == 0) {
@@ -206,6 +248,53 @@ public static class ConfigurationJsonMigrator {
         MigrateFishCaughtActionEnabledPresets(root);
     }
 
+    private static void MigrateV8(JObject root) {
+        if (root["HookPresets"] is not JObject hookPresets)
+            return;
+
+        static void MigratePreset(JObject? preset) {
+            if (preset == null) return;
+            foreach (var hook in EnumerateArray(preset["ListOfBaits"]).Concat(EnumerateArray(preset["ListOfMooch"]))) {
+                if (hook is not JObject hookObj) continue;
+                MigrateHooksetJson(hookObj["NormalHook"] as JObject);
+                MigrateHooksetJson(hookObj["IntuitionHook"] as JObject);
+            }
+        }
+
+        MigratePreset(hookPresets["DefaultPreset"] as JObject);
+        if (hookPresets["CustomPresets"] is JArray customPresets) {
+            foreach (var token in customPresets) {
+                if (token is JObject presetObj)
+                    MigratePreset(presetObj);
+            }
+        }
+    }
+
+    private static void MigrateV9(JObject root)
+        => MigrateActionCooldownChecks(root);
+
+    private static void MigratePresetActionCooldownChecks(JObject preset)
+        => MigrateActionCooldownChecks(preset);
+
+    private static void MigrateActionCooldownChecks(JObject root) {
+        var typeId = Registry.GetId<ActionCooldownCD>();
+        foreach (var cond in root.DescendantsAndSelf().OfType<JObject>()) {
+            if ((string?)cond["t"] != typeId)
+                continue;
+
+            var p = cond["p"] as JObject;
+            if (p == null) {
+                p = [];
+                cond["p"] = p;
+            }
+
+            if (p["chk"] != null)
+                continue;
+
+            p["chk"] = ActionCooldownCD.CheckCooldown;
+        }
+    }
+
     private static void MigratePresetConditions(JObject preset) {
         foreach (var hook in EnumerateArray(preset["ListOfBaits"]).Concat(EnumerateArray(preset["ListOfMooch"]))) {
             if (hook is JObject hookObj) {
@@ -247,10 +336,10 @@ public static class ConfigurationJsonMigrator {
     }
 
     private static Condition ActionOnCd(uint actionId)
-        => new() { TypeId = Registry.GetId<ActionCooldownCD>(), Params = new Dictionary<string, object> { ["id"] = (long)actionId, ["type"] = (long)0, ["sec"] = (long)0, ["op"] = ">" } };
+        => new() { TypeId = Registry.GetId<ActionCooldownCD>(), Params = new Dictionary<string, object> { ["id"] = (long)actionId, ["type"] = (long)0, ["chk"] = ActionCooldownCD.CheckCooldown, ["sec"] = (long)0, ["op"] = ">" } };
 
     private static Condition ItemOnCd(uint itemId)
-        => new() { TypeId = Registry.GetId<ActionCooldownCD>(), Params = new Dictionary<string, object> { ["id"] = (long)itemId, ["type"] = (long)1, ["sec"] = (long)0, ["op"] = ">" } };
+        => new() { TypeId = Registry.GetId<ActionCooldownCD>(), Params = new Dictionary<string, object> { ["id"] = (long)itemId, ["type"] = (long)1, ["chk"] = ActionCooldownCD.CheckCooldown, ["sec"] = (long)0, ["op"] = ">" } };
 
     private static ConditionSet Single(Condition c)
         => new() { CombineMode = ConditionCombineMode.All, Groups = [new ConditionGroup { CombineMode = ConditionCombineMode.All, Conditions = [c] }] };
@@ -431,22 +520,91 @@ public static class ConfigurationJsonMigrator {
 
     private static void MigrateLuresJson(JObject lures) {
         var existing = lures["ConditionSet"] as JObject;
-        if (existing?["g"] is JArray groups && groups.Count > 0)
+        if (existing?["g"] is not JArray { Count: > 0 }) {
+            var group = new List<Condition>();
+            if ((bool?)lures["OnlyWhenActiveSlap"] == true)
+                group.Add(Configuration.ConditionSetBuilder.StatusActive(IDs.Status.SurfaceSlap));
+            if ((bool?)lures["OnlyWhenNotActiveSlap"] == true)
+                group.Add(Configuration.ConditionSetBuilder.StatusActive(IDs.Status.SurfaceSlap, inverse: true));
+            if ((bool?)lures["OnlyWhenActiveIdentical"] == true)
+                group.Add(Configuration.ConditionSetBuilder.StatusActive(IDs.Status.IdenticalCast));
+            if ((bool?)lures["OnlyWhenNotActiveIdentical"] == true)
+                group.Add(Configuration.ConditionSetBuilder.StatusActive(IDs.Status.IdenticalCast, inverse: true));
+            if ((bool?)lures["OnlyCastLarge"] == true)
+                group.Add(Configuration.ConditionSetBuilder.StatusActive(IDs.Status.PrizeCatch));
+            if (group.Count > 0) {
+                var set = new ConditionSet { CombineMode = ConditionCombineMode.All, Groups = [new ConditionGroup { CombineMode = ConditionCombineMode.All, Conditions = group }] };
+                lures["ConditionSet"] = JToken.FromObject(set);
+            }
+        }
+
+        MigrateLuresToNestedJson(lures);
+    }
+
+    private static void MigratePresetLuresToNested(JObject preset) {
+        foreach (var hook in EnumerateArray(preset["ListOfBaits"]).Concat(EnumerateArray(preset["ListOfMooch"]))) {
+            if (hook is not JObject hookObj) continue;
+            if (hookObj["NormalHook"] is JObject normal && normal["CastLures"] is JObject normalLures)
+                MigrateLuresToNestedJson(normalLures);
+            if (hookObj["IntuitionHook"] is JObject intuition && intuition["CastLures"] is JObject intuitionLures)
+                MigrateLuresToNestedJson(intuitionLures);
+        }
+    }
+
+    private static void MigrateLuresToNestedJson(JObject lures) {
+        // already nested, either type works since default values are omited
+        if (lures["Ambitious"] is JObject || lures["Modest"] is JObject)
             return;
-        var group = new List<Condition>();
-        if ((bool?)lures["OnlyWhenActiveSlap"] == true)
-            group.Add(Configuration.ConditionSetBuilder.StatusActive(IDs.Status.SurfaceSlap));
-        if ((bool?)lures["OnlyWhenNotActiveSlap"] == true)
-            group.Add(Configuration.ConditionSetBuilder.StatusActive(IDs.Status.SurfaceSlap, inverse: true));
-        if ((bool?)lures["OnlyWhenActiveIdentical"] == true)
-            group.Add(Configuration.ConditionSetBuilder.StatusActive(IDs.Status.IdenticalCast));
-        if ((bool?)lures["OnlyWhenNotActiveIdentical"] == true)
-            group.Add(Configuration.ConditionSetBuilder.StatusActive(IDs.Status.IdenticalCast, inverse: true));
-        if ((bool?)lures["OnlyCastLarge"] == true)
-            group.Add(Configuration.ConditionSetBuilder.StatusActive(IDs.Status.PrizeCatch));
-        if (group.Count == 0) return;
-        var set = new ConditionSet { CombineMode = ConditionCombineMode.All, Groups = [new ConditionGroup { CombineMode = ConditionCombineMode.All, Conditions = group }] };
-        lures["ConditionSet"] = JToken.FromObject(set);
+
+        var actionId = (uint?)(lures["Id"] ?? IDs.Actions.AmbitiousLure) ?? IDs.Actions.AmbitiousLure;
+        var target = (int?)(lures["LureTarget"] ?? 0) ?? 0;
+        var stacks = Math.Clamp((int?)(lures["LureStacks"] ?? 3) ?? 3, 1, 3);
+        var cancel = (bool?)(lures["CancelAttempt"] ?? false) ?? false;
+        var conditionSet = lures["ConditionSet"]?.DeepClone();
+        var hadFlatConfig = (bool?)lures["Enabled"] == true || lures["Id"] != null || lures["LureTarget"] != null || lures["LureStacks"] != null || lures["CancelAttempt"] != null || conditionSet != null;
+
+        // nothing to carry over
+        if (!hadFlatConfig)
+            return;
+
+        static JObject EmptyTarget() => new() {
+            ["Enabled"] = false,
+            ["LureStacks"] = 3,
+            ["CancelAttempt"] = false,
+            ["ForceAttemptLimit"] = false,
+        };
+
+        JObject MakeType(bool enabled) {
+            var any = EmptyTarget();
+            var special = EmptyTarget();
+            var notSpecial = EmptyTarget();
+            var selected = target switch {
+                1 => special,
+                2 => notSpecial,
+                _ => any,
+            };
+            if (enabled) {
+                selected["Enabled"] = true;
+                selected["LureStacks"] = stacks;
+                selected["CancelAttempt"] = cancel;
+                if (conditionSet != null)
+                    selected["ConditionSet"] = conditionSet;
+            }
+
+            return new JObject {
+                ["Enabled"] = enabled,
+                ["Any"] = any,
+                ["Special"] = special,
+                ["NotSpecial"] = notSpecial,
+            };
+        }
+
+        var isAmbitious = actionId == IDs.Actions.AmbitiousLure;
+        lures["Ambitious"] = MakeType(isAmbitious);
+        lures["Modest"] = MakeType(!isAmbitious);
+
+        // conditions moved onto the selected target
+        lures.Remove("ConditionSet");
     }
 
     private static void MigrateHookSwimbaitJson(JObject hook) {

@@ -12,6 +12,10 @@
     <Platforms>x64</Platforms>
     <PlatformTarget>x64</PlatformTarget>
   </PropertyGroup>
+  <PropertyGroup>
+    <DalamudLibPath>$(MSBuildThisFileDirectory)..\..\..\TC_ok\_dalamud_api13\</DalamudLibPath>
+  </PropertyGroup>
+
 
   <ItemGroup>
     <EmbeddedResource Include="Data\*.json" />

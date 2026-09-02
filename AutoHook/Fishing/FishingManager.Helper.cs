@@ -9,7 +9,7 @@ public partial class FishingManager {
         if (GetAutoCastCfg().RecastAnimationCancel)
             PlayerRes.CastAction(IDs.Actions.Collect);
 
-        if (Ws.HasStatus(IDs.Status.Salvage) && GetAutoCastCfg().ChumAnimationCancel)
+        if (Ws.Player.HasStatus(IDs.Status.Salvage) && GetAutoCastCfg().ChumAnimationCancel)
             PlayerRes.CastAction(IDs.Actions.Salvage);
     }
 
@@ -19,7 +19,7 @@ public partial class FishingManager {
     // classic ChatMessage delegate. This build's own pre-existing handler already solved the same
     // problem from the other side and is runtime-verified on TC (session 15): match the message text
     // back to its LogMessage row and read the RowId. Both upstream branches are preserved, including
-    // upstream's newer LureTarget switch; only the way the id is obtained differs.
+    // upstream's per-option AutoLures.MatchesLureSuccess matching; only the way the id is obtained differs.
     //
     // The two chat-type constants are this build's measured TC values, kept rather than upstream's
     // XivChatType.Gathering, because they are the ones known to fire on this client.
@@ -32,17 +32,14 @@ public partial class FishingManager {
             var text = messageSe.TextValue;
 
             if (type is FishingMessage) {
-                var lureTarget = GetHookCfg().GetHookset().CastLures.LureTarget;
+                var active = GetHookCfg().GetHookset().CastLures.GetActiveOption();
+                if (active == null)
+                    return;
 
                 var isSpecialLure = GameRes.LureFishes.FirstOrDefault(f => f.LureMessage == text) != null;
-                if (lureTarget is LureTarget.Any or LureTarget.Special && isSpecialLure) {
-                    Ws.Execute(new FishingInfo.OpSetLureSuccess(true));
-                    return;
-                }
-
                 var isGenericLure = FindRow<LogMessage>(x => x.Text.ToString() == text)
                     is { RowId: LogMessageIds.AmbLureSuccess or LogMessageIds.ModLureSuccess };
-                if (lureTarget is LureTarget.Any or LureTarget.NotSpecial && isGenericLure)
+                if (AutoLures.MatchesLureSuccess(active.Value.Target, isGenericLure, isSpecialLure))
                     Ws.Execute(new FishingInfo.OpSetLureSuccess(true));
             }
             else if (type is SystemAlert) {

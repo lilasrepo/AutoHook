@@ -61,4 +61,16 @@ public static class Api13FishingState
     /// </summary>
     public const FFXIVClientStructs.FFXIV.Client.Game.Event.FishingState ModestLure =
         (FFXIVClientStructs.FFXIV.Client.Game.Event.FishingState)10;
+
+    /// <summary>
+    /// The newer FFXIVClientStructs renamed several members without changing their values
+    /// (verified 2026-09-02 against JP/Dalamud/lib/FFXIVClientStructs: None=0 was NotFishing,
+    /// Quitting=3 was Quit, AmbitiousLure=9 was NormalFishing, LineInWater=12 was LureFishing).
+    /// Upstream code written against the new names is kept verbatim and pointed here; the
+    /// refresh rule is FishingState.&lt;newName&gt; -> Api13FishingState.&lt;newName&gt;.
+    /// </summary>
+    public const FFXIVClientStructs.FFXIV.Client.Game.Event.FishingState None = FFXIVClientStructs.FFXIV.Client.Game.Event.FishingState.NotFishing;
+    public const FFXIVClientStructs.FFXIV.Client.Game.Event.FishingState Quitting = FFXIVClientStructs.FFXIV.Client.Game.Event.FishingState.Quit;
+    public const FFXIVClientStructs.FFXIV.Client.Game.Event.FishingState AmbitiousLure = FFXIVClientStructs.FFXIV.Client.Game.Event.FishingState.NormalFishing;
+    public const FFXIVClientStructs.FFXIV.Client.Game.Event.FishingState LineInWater = FFXIVClientStructs.FFXIV.Client.Game.Event.FishingState.LureFishing;
 }

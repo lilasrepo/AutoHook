@@ -1,0 +1,11 @@
+# Pinned 2026-09-02 (clib vendoring, see SESSION_LOG 2026-09-02 probe C2).
+#
+# Upstream AutoHook consumes croizat.clib as a net10-only NuGet package. The TC tree vendors
+# a net9-retargeted clib source tree (18 leaf files Compile-Removed) plus a global.json that
+# selects the .NET 10 SDK compiler for C# 14 `extension` blocks. Neither exists upstream, so a
+# refresh must not touch them; and AutoHook.csproj carries the clib/FishSolver ProjectReferences
+# and the TC-managed <Version>, which csproj take-theirs would silently drop the first time
+# upstream edits its own csproj.
+AutoHook/AutoHook.csproj
+clib/*
+global.json
