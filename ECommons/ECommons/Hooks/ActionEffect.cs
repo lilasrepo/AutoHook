@@ -1,4 +1,4 @@
-﻿using Dalamud.Hooking;
+using Dalamud.Hooking;
 using ECommons.DalamudServices;
 using ECommons.Hooks.ActionEffectTypes;
 using ECommons.Logging;
@@ -11,6 +11,7 @@ namespace ECommons.Hooks;
 
 public static unsafe class ActionEffect
 {
+    // C-fix(TC 7.20): the 3.2.1.15 value is game-7.5; this is the 3.0.1.29 value that ran on the TC client (re-applied 2026-09-03, GATE).
     public const string Sig = "40 55 56 57 41 54 41 55 41 56 41 57 48 8D AC 24";
 
     public delegate void ProcessActionEffect(uint sourceId, Character* sourceCharacter, Vector3* pos, EffectHeader* effectHeader, EffectEntry* effectArray, ulong* effectTail);

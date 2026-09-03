@@ -1,4 +1,5 @@
 ﻿using Dalamud.Game;
+using Dalamud.Utility;
 using ECommons.DalamudServices;
 using ECommons.ExcelServices.TerritoryEnumeration;
 using ECommons.Logging;
@@ -7,6 +8,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 #nullable disable
 
 namespace ECommons.ExcelServices;
@@ -70,12 +72,16 @@ public static class ExcelTerritoryHelper
         return !nonExists;
     }
 
+    /// <inheritdoc cref="GetName(uint, bool, ClientLanguage?)"/>
+    public static string GetName(int TerritoryType, bool includeID = false, ClientLanguage? language = null) => GetName((uint)TerritoryType, includeID, language);
+
     /// <summary>
     /// Gets fancy name for a territory.
     /// </summary>
     /// <param name="TerritoryType">Zone ID</param>
     /// <param name="includeID">Whether to include an ID into name</param>
     /// <returns>Content finder condition if exists; otherwise - zone name if exists; otherwise - zone ID as a string</returns>
+    [OverloadResolutionPriority(1)]
     public static string GetName(uint TerritoryType, bool includeID = false, ClientLanguage? language = null)
     {
         var data = Svc.Data.GetExcelSheet<TerritoryType>(language: language).GetRowOrDefault(TerritoryType);
@@ -87,16 +93,16 @@ public static class ExcelTerritoryHelper
         {
             if(tname.IsNullOrEmpty())
             {
-                return $"#{TerritoryType}";
+                return $"#{TerritoryType}".FirstCharToUpper();
             }
             else
             {
-                return $"{id}{tname}";
+                return $"{id}{tname.FirstCharToUpper()}";
             }
         }
         else
         {
-            return $"{id}{cfc}";
+            return $"{id}{cfc.FirstCharToUpper()}";
         }
     }
 

@@ -1,4 +1,7 @@
-﻿using System.Reflection;
+﻿using ECommons.DalamudServices;
+using Lumina.Excel;
+using Lumina.Excel.Sheets;
+using System.Reflection;
 
 namespace ECommons.ExcelServices;
 
@@ -219,4 +222,14 @@ public enum Job : byte
     /// Pictomancer 
     /// </summary>
     PCT = 42,
+
+    /// <summary>
+    /// Beastmaster
+    /// </summary>
+    BST = 43,
+}
+
+public static class JobExtensions
+{
+    public static RowRef<ClassJob> GetGameData(this Job job) => ClassJob.GetRef((uint)job);
 }

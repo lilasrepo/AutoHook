@@ -1,4 +1,4 @@
-﻿using Dalamud.Plugin;
+using Dalamud.Plugin;
 using ECommons.Automation;
 using ECommons.Commands;
 using ECommons.Configuration;
@@ -14,6 +14,7 @@ using ECommons.GameFunctions;
 using ECommons.GameHelpers;
 using ECommons.Hooks;
 using ECommons.ImGuiMethods;
+using ECommons.Interop;
 using ECommons.LazyDataHelpers;
 using ECommons.Loader;
 using ECommons.Logging;
@@ -26,8 +27,11 @@ using ECommons.StringHelpers;
 using ECommons.Throttlers;
 using Serilog.Events;
 using System;
+using System.Collections.Concurrent;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
+using TerraFX.Interop.Windows;
 using Callback = ECommons.Automation.Callback;
 
 
@@ -37,27 +41,81 @@ namespace ECommons;
 
 public static class ECommonsMain
 {
-    public static IDalamudPlugin Instance = null;
+    public static object Instance { get; private set; } = null;
+    /// <summary>
+    /// Represents unique plugin identifier stored as UniqueId. It is guaranteed to be different for each plugin instance. 
+    /// </summary>
+    public static uint InstanceUniqueId { get; private set; }
+    private static ConcurrentDictionary<uint, string> UniqueIdConcurrentDictionary;
+    private static readonly string Name_UniqueIdConcurrentDictionary = "ECommons.UniqueIdConcurrentDictionary";
     public static bool Disposed { get; private set; } = false;
+    public static unsafe nint* MainWindowHandle { get; private set; }
 
     /// <summary>
     /// Set this to true to significantly reduce amount of logging ECommons will do. You can change it any time. 
     /// </summary>
     public static bool ReducedLogging = false;
 
-    /// <summary>
-    /// gap-fill: upstream added InstanceUniqueId in cdd7f92 (2026-05-26), well after the
-    /// api13-window anchor. Upstream's version coordinates uniqueness across concurrently
-    /// loaded plugins through a shared ConcurrentDictionary wired into Init(); that is a
-    /// larger transplant whose behaviour cannot be runtime-verified while the reference
-    /// DLLs are a self-built preview, so this keeps the simpler form TC has been shipping.
-    /// </summary>
-    public static uint InstanceUniqueId { get; private set; } = unchecked((uint)Guid.NewGuid().GetHashCode());
-
-    public static void Init(IDalamudPluginInterface pluginInterface, IDalamudPlugin instance, params Module[] modules)
+    public unsafe static void Init(IDalamudPluginInterface pluginInterface, object instance, params Module[] modules)
     {
+        // porting-note(api13): api13 Dalamud.dll has no IAsyncDalamudPlugin; only the sync interface is checked.
+        if(instance is not IDalamudPlugin)
+        {
+            throw new InvalidOperationException($"Invalid \"instance\" argument has been detected. Must be an instance of type that implements the {nameof(IDalamudPlugin)} interface.");
+        }
         Instance = instance;
-        GenericHelpers.Safe(() => Svc.Init(pluginInterface));
+        try
+        {
+            Svc.Init(pluginInterface);
+        }
+        catch(Exception ex)
+        {
+            new Thread(() =>
+            {
+                try
+                {
+                    var title = "Error initializing ECommons";
+                    var message = $"Error initializing ECommons services: {ex.Message}\nPlugin {pluginInterface?.Manifest?.InternalName} can not be loaded.\nPlease contact the developer.\nSee dalamud.boot.log for stack trace.";
+                    Console.WriteLine($"Error initializing ECommons services\n{ex.ToStringFull()}");
+                    var windowd = WindowFunctions.TryFindGameWindow(out var handle);
+                    fixed(char* titlePtr = title)
+                    fixed(char* messagePtr = message)
+                        // porting-note(api13): api13's TerraFX MessageBox signature takes ushort*, not char*.
+                        TerraFX.Interop.Windows.Windows.MessageBox(windowd ? handle : default, (ushort*)messagePtr, (ushort*)titlePtr, 0);
+                }
+                catch(Exception e)
+                {
+                    Console.WriteLine($"Error showing MessageBox: {e.ToStringFull()}\nError initializing ECommons services\n{ex.ToStringFull()}");
+                }
+            }).Start();
+            throw;
+        }
+        try
+        {
+            UniqueIdConcurrentDictionary = Svc.PluginInterface.GetOrCreateData<ConcurrentDictionary<uint, string>>(Name_UniqueIdConcurrentDictionary, () => []);
+            do
+            {
+                byte[] buffer = new byte[4];
+                Random.Shared.NextBytes(buffer);
+                InstanceUniqueId = BitConverter.ToUInt32(buffer, 0);
+            }
+            while(!UniqueIdConcurrentDictionary.TryAdd(InstanceUniqueId, $"{Svc.PluginInterface.Manifest.InternalName} v{Svc.PluginInterface.Manifest.AssemblyVersion} @{Svc.PluginInterface.LoadTime}"));
+        }
+        catch(Exception e)
+        {
+            PluginLog.Error($"Error generating unique plugin identifier properly: \n{e.ToStringFull()}\nFallback: random number has been generated without uniqueness verification.");
+            byte[] buffer = new byte[4];
+            Random.Shared.NextBytes(buffer);
+            InstanceUniqueId = BitConverter.ToUInt32(buffer, 0);
+        }
+        try
+        {
+            MainWindowHandle = (nint*)Svc.SigScanner.GetStaticAddressFromSig("48 89 1D ?? ?? ?? ?? 48 8B CB FF 15");
+        }
+        catch(Exception e)
+        {
+            PluginLog.Warning($"Could not obtain main window handle pointer. \n{e.ToStringFull()}");
+        }
 #if DEBUG
 var type = "debug build";
 #elif RELEASE
@@ -65,9 +123,13 @@ var type = "debug build";
 #else
 var type = "unknown build";
 #endif
-        if(!ReducedLogging) PluginLog.Information($"This is ECommons v{typeof(ECommonsMain).Assembly.GetName().Version} ({type}) and {Svc.PluginInterface.InternalName} v{instance.GetType().Assembly.GetName().Version}. Hello!");
+        if(!ReducedLogging) PluginLog.Information($"This is ECommons v{typeof(ECommonsMain).Assembly.GetName().Version} ({type}) and {Svc.PluginInterface.InternalName} v{instance.GetType().Assembly.GetName().Version}. Plugin's Instance ID is 0x{InstanceUniqueId:X8}. Hello!");
         Svc.Log.MinimumLogLevel = LogEventLevel.Verbose;
         GenericHelpers.Safe(CmdManager.Init);
+        if(modules.ContainsAny(Module.VfxTracking, Module.All))
+        {
+            GenericHelpers.Safe(VfxManager.Init);
+        }
         if(modules.ContainsAny(Module.All, Module.ObjectFunctions))
         {
             if(!ReducedLogging) PluginLog.Information("Object functions module has been requested");
@@ -141,9 +203,13 @@ var type = "unknown build";
         GenericHelpers.Safe(ActionEffect.Dispose);
         GenericHelpers.Safe(MapEffect.Dispose);
         GenericHelpers.Safe(SendAction.Dispose);
+        GenericHelpers.Safe(ActorVfx.Dispose);
+        GenericHelpers.Safe(StaticVfx.Dispose);
+        GenericHelpers.Safe(GameObjectCtor.Dispose);
+        GenericHelpers.Safe(VfxManager.Dispose);
         GenericHelpers.Safe(Automation.LegacyTaskManager.TaskManager.DisposeAll);
         GenericHelpers.Safe(Automation.NeoTaskManager.TaskManager.DisposeAll);
-#pragma warning disable CS0618 // Type or member is obsolete
+ // Type or member is obsolete
         GenericHelpers.Safe(EqualStrings.Dispose);
 #pragma warning restore CS0618 // Type or member is obsolete
         GenericHelpers.Safe(AutoCutsceneSkipper.Dispose);
@@ -156,10 +222,15 @@ var type = "unknown build";
         GenericHelpers.Safe(EzSharedData.Dispose);
         GenericHelpers.Safe(EzIPC.Dispose);
         GenericHelpers.Safe(ContextMenuPrefixRemover.Dispose);
-        GenericHelpers.Safe(Purgatory.Purge);
         GenericHelpers.Safe(ExternalWriter.Dispose);
         GenericHelpers.Safe(EzDtr.DisposeAll);
         GenericHelpers.Safe(TradeDetectionManager.Dispose);
+        GenericHelpers.Safe(RenderDisableManager.Dispose);
+        GenericHelpers.Safe(Purgatory.Purge);
+        GenericHelpers.Safe(static () =>
+        {
+            Svc.PluginInterface.RelinquishData(Name_UniqueIdConcurrentDictionary);
+        });
         //SingletonManager.Dispose();
         Instance = null;
     }

@@ -1,4 +1,4 @@
-﻿using ECommons.Automation.UIInput;
+using ECommons.Automation.UIInput;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using System;
@@ -58,8 +58,16 @@ public abstract unsafe class AddonMasterBase<T> : IAddonMasterBase where T : unm
     public bool IsAddonFocused => IsAddonInFocusList;
     public bool IsAddonOnlyFocusListEntry => RaptureAtkUnitManager.Instance()->FocusedUnitsList.Count == 1 && RaptureAtkUnitManager.Instance()->FocusedUnitsList.Entries[0].Value == Base;
 
+    // porting-note(TC game 7.20): every button property in this file's siblings is
+    // `Addon->GetComponentButtonById(<literal>)`, and those literals track the CURRENT
+    // international UI layout. On the older TC layout a node id frequently does not exist, so the
+    // getter hands back null and the dereference below throws. Because these calls sit inside
+    // per-frame TaskManager work, one missing node turns into an exception every tick and the
+    // automation wedges -- which is exactly how the 2026-08-04 ICE regression presented
+    // (WKSMission node 17 vs TC's 13). A null button means "nothing to click", not "crash".
     protected bool ClickButtonIfEnabled(AtkComponentButton* button, bool respectHoldButtons = false)
     {
+        if(button == null) return false;
         if(button->IsEnabled && button->AtkResNode->IsVisible()
             && (!respectHoldButtons || button->GetComponentType() != ComponentType.HoldButton))
         {
@@ -71,6 +79,7 @@ public abstract unsafe class AddonMasterBase<T> : IAddonMasterBase where T : unm
 
     protected bool ClickButtonIfEnabled(AtkComponentRadioButton* button)
     {
+        if(button == null) return false;
         if(button->IsEnabled && button->AtkResNode->IsVisible())
         {
             button->ClickRadioButton(Base);
@@ -81,6 +90,7 @@ public abstract unsafe class AddonMasterBase<T> : IAddonMasterBase where T : unm
 
     protected bool ClickCheckboxIfEnabled(AtkComponentCheckBox* checkbox)
     {
+        if(checkbox == null) return false;
         if(checkbox->IsEnabled && checkbox->AtkResNode->IsVisible())
         {
             checkbox->ClickCheckBox(Base);

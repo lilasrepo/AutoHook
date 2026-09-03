@@ -1,4 +1,4 @@
-﻿using ECommons.DalamudServices;
+using ECommons.DalamudServices;
 using ECommons.GameHelpers;
 using ECommons.Logging;
 using ECommons.Schedulers;
@@ -7,6 +7,7 @@ using System.Collections.Generic;
 
 namespace ECommons.Events;
 #nullable disable
+
 
 public static class ProperOnLogin
 {

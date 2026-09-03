@@ -1,4 +1,4 @@
-﻿using Dalamud.Plugin.Ipc.Exceptions;
+using Dalamud.Plugin.Ipc.Exceptions;
 using ECommons.LazyDataHelpers;
 using System;
 using System.Runtime.InteropServices;
@@ -16,6 +16,8 @@ public static unsafe class WindowFunctions
     public const int SW_SHOWNA = 8;
 
     private static readonly Lock FFXIVClassNamePtrLock = new();
+    // porting-note(api13): api13's TerraFX FindWindowEx/etc. take ushort* (UTF-16), not char*.
+    // Same fix as the shipping ECommons 3.0.1.29 tree.
     public static ushort* FFXIVClassNamePtr
     {
         get

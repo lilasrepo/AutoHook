@@ -775,11 +775,8 @@ public sealed class WorldStateUpdater : IDisposable {
         return (new PlayerInfo.OpItemCounts(dict), new PlayerInfo.OpInventoryStats(freeSlots, reduceableFish));
     }
 
-    // porting-note(api13): the ECommons revision pinned for api13 exposes Player.Territory as a raw
-    // uint rather than a row reference, so upstream's `is { Value.TerritoryIntendedUse.RowId: 60 }`
-    // pattern has no equivalent. Same test, resolved through the sheet instead.
     private static bool IsCosmicExplorationZone()
-        => Sheets.TryGetRow<TerritoryType>(Player.Territory, out var t) && t.TerritoryIntendedUse.RowId == 60;
+        => Player.Territory is { Value.TerritoryIntendedUse.RowId: 60 };
 
     private static unsafe bool IsReduceableFish(Pointer<InventoryItem> item)
         => item.Value->Flags == InventoryItem.ItemFlags.Collectable && TryGetRow<Item>(item.Value->ItemId, out var row) && row.AetherialReduce > 0;

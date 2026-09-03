@@ -1,4 +1,6 @@
 ﻿using ECommons.DalamudServices;
+using ECommons.DalamudServices.Legacy;
+using ECommons.GameFunctions;
 using Lumina.Excel.Sheets;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;

@@ -12,7 +12,7 @@ public static unsafe partial class GenericHelpers
     public static bool IsAddonReady(AtkUnitBase* Addon)
         => Addon->IsVisible && Addon->UldManager.LoadedState == AtkLoadState.Loaded && Addon->IsFullyLoaded();
 
-    public static bool IsReady(this AtkUnitBase Addon)
+    public static bool IsReady(this ref AtkUnitBase Addon)
         => Addon.IsVisible && Addon.UldManager.LoadedState == AtkLoadState.Loaded && Addon.IsFullyLoaded();
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -149,5 +149,20 @@ public static unsafe partial class GenericHelpers
             AddonPtr = (T*)a.Address;
             return true;
         }
+    }
+
+    public static bool IsString(this AtkValueType type)
+    {
+        return type == AtkValueType.String || type == AtkValueType.String8 || type == AtkValueType.WideString || type == AtkValueType.ManagedString;
+    }
+
+    public static bool IsString(this AtkValue value)
+    {
+        var type = value.Type;
+        if(type == AtkValueType.String || type == AtkValueType.String8 || type == AtkValueType.WideString || type == AtkValueType.ManagedString)
+        {
+            return value.String.HasValue;
+        }
+        return false;
     }
 }

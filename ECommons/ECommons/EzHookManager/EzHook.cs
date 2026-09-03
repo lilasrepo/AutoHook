@@ -56,8 +56,8 @@ public class EzHook<T> where T : System.Delegate
             HookDelegate.Enable();
             if(EzHookCommon.TrackMemory > 0 && SafeMemory.ReadBytes(Address, EzHookCommon.TrackMemory, out var changed) && orig != null)
             {
-                PluginLog.Debug($"   Before: {orig.Select(x => $"{x:X2}").Print(" ")}");
-                PluginLog.Debug($"    After: {changed.Select(x => $"{x:X2}").Print(" ")}");
+                Log($"   Before: {orig.Select(x => $"{x:X2}").Print(" ")}");
+                Log($"    After: {changed.Select(x => $"{x:X2}").Print(" ")}");
             }
             EzHookCommon.RegisteredHooks.Add(HookDelegate);
         }
@@ -78,8 +78,8 @@ public class EzHook<T> where T : System.Delegate
             HookDelegate.Disable();
             if(EzHookCommon.TrackMemory > 0 && SafeMemory.ReadBytes(Address, EzHookCommon.TrackMemory, out var changed) && orig != null)
             {
-                PluginLog.Debug($"   Before: {orig.Select(x => $"{x:X2}").Print(" ")}");
-                PluginLog.Debug($"    After: {changed.Select(x => $"{x:X2}").Print(" ")}");
+                Log($"   Before: {orig.Select(x => $"{x:X2}").Print(" ")}");
+                Log($"    After: {changed.Select(x => $"{x:X2}").Print(" ")}");
             }
         }
     }
@@ -99,8 +99,8 @@ public class EzHook<T> where T : System.Delegate
             HookDelegate = null;
             if(EzHookCommon.TrackMemory > 0 && SafeMemory.ReadBytes(Address, EzHookCommon.TrackMemory, out var changed) && orig != null)
             {
-                PluginLog.Debug($"   Before: {orig.Select(x => $"{x:X2}").Print(" ")}");
-                PluginLog.Debug($"    After: {changed.Select(x => $"{x:X2}").Print(" ")}");
+                Log($"   Before: {orig.Select(x => $"{x:X2}").Print(" ")}");
+                Log($"    After: {changed.Select(x => $"{x:X2}").Print(" ")}");
             }
         }
     }
@@ -112,5 +112,11 @@ public class EzHook<T> where T : System.Delegate
     /// </summary>
     public T Original => HookDelegate?.Original ?? Delegate;
 
-    private static void Log(string s) => PluginLog.Debug($"[EzHook] {s}");
+    private static void Log(string s)
+    {
+        if(!ECommonsMain.ReducedLogging)
+        {
+            PluginLog.Debug($"[EzHook] {s}");
+        }
+    }
 }

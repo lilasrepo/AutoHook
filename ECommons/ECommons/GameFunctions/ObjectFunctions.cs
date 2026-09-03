@@ -1,6 +1,8 @@
-﻿using Dalamud.Game.ClientState.Objects.Types;
+using Dalamud.Game.ClientState.Objects.SubKinds;
+using Dalamud.Game.ClientState.Objects.Types;
 using ECommons.DalamudServices;
 using ECommons.EzHookManager;
+using ECommons.GameFunctions.VirtualTableClassifier;
 using ECommons.Logging;
 using System;
 using System.Numerics;
@@ -8,6 +10,7 @@ using System.Runtime.InteropServices;
 
 namespace ECommons.GameFunctions;
 #nullable disable
+
 
 public static unsafe class ObjectFunctions
 {
@@ -17,6 +20,16 @@ public static unsafe class ObjectFunctions
     private static string GetNameplateColorSig = "48 89 5C 24 ?? 48 89 6C 24 ?? 48 89 74 24 ?? 57 48 83 EC 20 48 8B 35 ?? ?? ?? ?? 48 8B F9";
 
     public static FFXIVClientStructs.FFXIV.Client.Game.Object.GameObject* Struct(this IGameObject o)
+    {
+        return (FFXIVClientStructs.FFXIV.Client.Game.Object.GameObject*)o.Address;
+    }
+
+    public static FFXIVClientStructs.FFXIV.Client.Game.Object.EventObject* Struct(this IEventObj o)
+    {
+        return (FFXIVClientStructs.FFXIV.Client.Game.Object.EventObject*)o.Address;
+    }
+
+    public static FFXIVClientStructs.FFXIV.Client.Game.Object.GameObject* GameObject(this IEventObj o)
     {
         return (FFXIVClientStructs.FFXIV.Client.Game.Object.GameObject*)o.Address;
     }
@@ -68,7 +81,7 @@ public static unsafe class ObjectFunctions
         var num = 0;
         foreach(var o in Svc.Objects)
         {
-            if(o is IBattleNpc)
+            if(o.IsBattleNpc())
             {
                 var oStruct = (FFXIVClientStructs.FFXIV.Client.Game.Object.GameObject*)o.Address;
                 if(oStruct->GetIsTargetable() && o.IsHostile()

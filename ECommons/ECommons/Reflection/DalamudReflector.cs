@@ -142,7 +142,7 @@ public static class DalamudReflector
                 Svc.PluginInterface.GetType().Assembly
                     .GetType("Dalamud.Plugin.Internal.Types.PluginRepository")!,
                 happyHttpClient, masterURL, true);
-            await pluginRepository.Call<Task>("ReloadPluginMasterAsync", []);
+            await pluginRepository.Call<Task>("ReloadAsync", []);
 
             var pluginMaster = pluginRepository!.GetType()
                 .GetProperty("PluginMaster")!
@@ -197,7 +197,7 @@ public static class DalamudReflector
     public static bool TryGetLocalPlugin(out object localPlugin, out AssemblyLoadContext context, out Type type) =>
         TryGetLocalPlugin(ECommonsMain.Instance, out localPlugin, out context, out type);
 
-    public static bool TryGetLocalPlugin(IDalamudPlugin instance, out object localPlugin, out AssemblyLoadContext context, out Type type)
+    public static bool TryGetLocalPlugin(object instance, out object localPlugin, out AssemblyLoadContext context, out Type type)
     {
         try
         {
@@ -210,8 +210,8 @@ public static class DalamudReflector
             foreach(var t in installedPlugins)
             {
                 type = t.GetType().Name == "LocalDevPlugin" ? t.GetType().BaseType : t.GetType();
-                var plugin = (IDalamudPlugin)type.GetField("instance", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(t);
-                if(plugin == ECommonsMain.Instance)
+                var plugin = type.GetField("instance", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(t);
+                if(ReferenceEquals(plugin, ECommonsMain.Instance))
                 {
                     localPlugin = t;
                     context = type.GetField("loader", ReflectionHelper.AllFlags).GetValue(t)?.GetFoP<AssemblyLoadContext>("context");
@@ -233,7 +233,7 @@ public static class DalamudReflector
         return false;
     }
 
-    public static bool TryGetDalamudPlugin(string internalName, out IDalamudPlugin instance, bool suppressErrors = false, bool ignoreCache = false) => TryGetDalamudPlugin(internalName, out instance, out _, suppressErrors, ignoreCache);
+    public static bool TryGetDalamudPlugin(string internalName, out object instance, bool suppressErrors = false, bool ignoreCache = false) => TryGetDalamudPlugin(internalName, out instance, out _, suppressErrors, ignoreCache);
 
     /// <summary>
     /// Attempts to retrieve an instance of loaded plugin and it's load context. 
@@ -245,10 +245,14 @@ public static class DalamudReflector
     /// <param name="ignoreCache">Whether to disable caching of the plugin and it's context to speed up further searches</param>
     /// <returns>Whether operation succeeded</returns>
     /// <exception cref="Exception"></exception>
-    public static bool TryGetDalamudPlugin(string internalName, out IDalamudPlugin instance, out AssemblyLoadContext context, bool suppressErrors = false, bool ignoreCache = false)
+    public static bool TryGetDalamudPlugin(string internalName, out object instance, out AssemblyLoadContext context, bool suppressErrors = false, bool ignoreCache = false)
     {
         if(!ignoreCache)
         {
+            if(pluginCache == null)
+            {
+                throw new Exception("PluginCache is null. Have you initialised the DalamudReflector module on ECommons initialisation?");
+            }
             if(!IsMonitoring)
             {
                 IsMonitoring = true;
@@ -256,12 +260,8 @@ public static class DalamudReflector
                 Svc.Framework.Update += MonitorPlugins;
             }
         }
-        if(pluginCache == null)
-        {
-            throw new Exception("PluginCache is null. Have you initialised the DalamudReflector module on ECommons initialisation?");
-        }
 
-        if(!ignoreCache && pluginCache.TryGetValue(internalName, out var entry) && entry.Plugin != null)
+        if(!ignoreCache && pluginCache?.TryGetValue(internalName, out var entry) == true && entry.Plugin != null)
         {
             instance = entry.Plugin;
             context = entry.Context;
@@ -277,7 +277,7 @@ public static class DalamudReflector
                 if((string)t.GetType().GetProperty("InternalName").GetValue(t) == internalName)
                 {
                     var type = t.GetType().Name == "LocalDevPlugin" ? t.GetType().BaseType : t.GetType();
-                    var plugin = (IDalamudPlugin)type.GetField("instance", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(t);
+                    var plugin = type.GetField("instance", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(t);
                     if(plugin == null)
                     {
                         InternalLog.Warning($"Found requested plugin {internalName} but it was null");
@@ -286,7 +286,7 @@ public static class DalamudReflector
                     {
                         instance = plugin;
                         context = t.GetFoP("loader")?.GetFoP<AssemblyLoadContext>("context");
-                        pluginCache[internalName] = new(plugin, context);
+                        pluginCache?[internalName] = new(plugin, context);
                         return true;
                     }
                 }

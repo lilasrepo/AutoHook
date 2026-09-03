@@ -1,4 +1,4 @@
-﻿using Dalamud.Interface.Utility;
+using Dalamud.Interface.Utility;
 using Dalamud.Interface.Windowing;
 using ECommons.DalamudServices;
 using Dalamud.Bindings.ImGui;
@@ -6,6 +6,7 @@ using System;
 using System.Numerics;
 
 namespace ECommons.ImGuiMethods;
+
 
 public class MiddleOverlayWindow : Window, IDisposable
 {

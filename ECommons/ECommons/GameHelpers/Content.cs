@@ -5,6 +5,7 @@ using Lumina.Excel.Sheets;
 using System.Linq;
 using SheetContentType = Lumina.Excel.Sheets.ContentType;
 using TerritoryHelper = ECommons.TerritoryName;
+using MapRowRef = Lumina.Excel.Sheets.Map;
 
 #nullable disable
 
@@ -73,6 +74,7 @@ public enum ContentDifficulty
 /// </remarks>
 public static class Content
 {
+    
     /// <summary>
     ///     The ID of the current territory the player is in.
     /// </summary>
@@ -83,7 +85,7 @@ public static class Content
     /// </summary>
     /// <seealso cref="TerritoryHelper.GetTerritoryName" />
     private static string TerritoryNameResult =>
-        TerritoryHelper.GetTerritoryName(TerritoryID);
+        TerritoryHelper.GetTerritoryName(TerritoryID, Language.English);
 
     /// <summary>
     ///     Whether the TerritoryName came out successfully from the builder.
@@ -117,6 +119,13 @@ public static class Content
     /// </summary>
     public static uint MapID =>
         Svc.ClientState.MapId;
+    
+    /// <summary>
+    ///     The Sheet row for the current map the player is in.
+    /// </summary>
+    public static MapRowRef? MapRow =>
+        Svc.Data.Excel.GetSheet<MapRowRef>(Language.English)!
+            .GetRowOrDefault(MapID);
 
     /// <summary>
     ///     The intended use of the current territory the player is in.
@@ -142,6 +151,12 @@ public static class Content
     /// </summary>
     public static ContentFinderCondition? ContentFinderConditionRow =>
         TerritoryTypeRow?.ContentFinderCondition.ValueNullable;
+
+    /// <summary>
+    ///     The Row ID of the current <see cref="ContentFinderCondition" />.
+    /// </summary>
+    public static uint? ContentFinderConditionRowId =>
+        ContentFinderConditionRow?.RowId;
 
     /// <summary>
     ///     The content name of the current territory the player is in.
@@ -252,7 +267,7 @@ public static class Content
     /// <summary>
     ///     The Row ID of the current <see cref="SheetContentType" />.
     /// </summary>
-    private static uint? ContentTypeRowId =>
+    public static uint? ContentTypeRowId =>
         ContentTypeRow?.RowId;
 
     /// <summary>
@@ -291,15 +306,15 @@ public static class Content
     ///     <see cref="ContentType.OverWorld" />.
     /// </param>
     /// <returns>The determined <see cref="ContentType" />.</returns>
-    private static ContentType? DetermineContentType
+    private static unsafe ContentType? DetermineContentType
         (ContentType @default = GameHelpers.ContentType.OverWorld)
     {
         return TerritoryIntendedUse switch
         {
-            TerritoryIntendedUseEnum.Barracks or
-                TerritoryIntendedUseEnum.Rival_Wings or
+            TerritoryIntendedUseEnum.Rival_Wings or
                 TerritoryIntendedUseEnum.Crystalline_Conflict or
-                TerritoryIntendedUseEnum.Frontline =>
+                TerritoryIntendedUseEnum.Frontline when
+                ContentFinderConditionRowId is not 160 /*Curious Gorge*/ =>
                 GameHelpers.ContentType.PVP,
 
             TerritoryIntendedUseEnum.Dungeon or
@@ -324,10 +339,10 @@ public static class Content
                 GameHelpers.ContentType.FieldRaid,
 
             _ when
-                (ContentName?.Contains("Delubrum") ?? false) ||
-                (ContentName?.Contains("Lacus") ?? false) ||
-                (ContentName?.Contains("Dalriada") ?? false) ||
-                MapID is >= 520 and <= 527 =>
+                MapRow?.PlaceName.RowId is 3597 /*Delubrum Reginae*/ ||
+                MapRow?.PlaceName.RowId is 3535 /*Castrum Lacus Litore*/ ||
+                MapRow?.PlaceName.RowId is 3682 /*The Dalriada*/ ||
+                MapRow?.PlaceName.RowId is 5179 /*Tower of Blood*/ =>
                 GameHelpers.ContentType.FieldRaid,
 
             TerritoryIntendedUseEnum.Eureka or
@@ -344,6 +359,10 @@ public static class Content
             TerritoryIntendedUseEnum.Raid or
                 TerritoryIntendedUseEnum.Raid_2 =>
                 GameHelpers.ContentType.Raid,
+
+            _ when TerritoryID is 250 /*Wolves' Den Pier*/ &&
+                   ContentFinderConditionRowId is not 160 /*Curious Gorge*/ =>
+                GameHelpers.ContentType.PVP,
 
             _ => @default,
         };
@@ -372,6 +391,7 @@ public static class Content
                     "Hard" => GameHelpers.ContentDifficulty.Hard,
                     "Extreme" => GameHelpers.ContentDifficulty.Extreme,
                     "Savage" => GameHelpers.ContentDifficulty.Savage,
+                    "Chaotic" => GameHelpers.ContentDifficulty.Chaotic,
                     _ => @default,
                 },
 
@@ -399,13 +419,13 @@ public static class Content
             { ContentType.RowId: 37 } =>
                 GameHelpers.ContentDifficulty.Chaotic,
 
-            { ContentType.RowId: 30, AllowUndersized: true } =>
+            { ContentType.RowId: 30, AllowUndersized: false, Unknown34: 0 } =>
                 GameHelpers.ContentDifficulty.Criterion,
 
             { ContentType.RowId: 5 } when ContentDifficultyFromName == "Savage" =>
                 GameHelpers.ContentDifficulty.Savage,
 
-            { ContentType.RowId: 30, AllowUndersized: false } =>
+            { ContentType.RowId: 30, AllowUndersized: false, Unknown34: 1 } =>
                 GameHelpers.ContentDifficulty.CriterionSavage,
 
             { ContentType.RowId: 28 } =>

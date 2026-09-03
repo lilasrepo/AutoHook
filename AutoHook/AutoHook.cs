@@ -202,14 +202,30 @@ public class AutoHook : IDalamudPlugin {
         OceanFishingSpotOverlay.Draw();
     }
 
-    // porting-note(api13): upstream builds two DTR bar entries with an EzDtr overload that
-    // takes a click EVENT (left vs right) plus a showCondition predicate. The ECommons
-    // revision pinned for this generation only offers EzDtr(Func<SeString>, Action?, string?)
-    // - no click type, no visibility predicate - so neither entry can be reproduced
-    // faithfully. Half-working bar entries that ignore DtrBarEnabled and cannot tell left
-    // from right would be worse than none, so both are dropped (B1). Everything they
-    // toggled is still reachable from the plugin window and the /ah commands.
-    // TODO(api13): restore when the pinned ECommons gains the richer EzDtr overload.
     private void SetupDtr() {
+        _ = new EzDtr(() => $"{((SeIconChar)0xE05E).ToIconString()} {(Service.Configuration.PluginEnabled ? UIStrings.Enabled : UIStrings.Disabled)}",
+                evt => {
+                    if (evt.ClickType is MouseClickType.Left) {
+                        Service.Configuration.PluginEnabled ^= true;
+                        Service.Save();
+                    }
+                    else if (evt.ClickType is MouseClickType.Right)
+                        _pluginUi.Toggle();
+                },
+                showCondition: () => Service.Configuration.DtrBarEnabled && Player.Job is ECommons.ExcelServices.Job.FSH
+            );
+
+        _ = new EzDtr(() => $"{SeIconChar.Collectible.ToIconString()} {Service.Configuration.HookPresets.SelectedPreset?.PresetName ?? $"{UIStrings.GlobalPreset}"}",
+            evt => {
+                if (Service.Configuration.HookPresets.SelectedPreset == null) return;
+                var presets = Service.Configuration.HookPresets.CustomPresets;
+                var index = presets.IndexOf(Service.Configuration.HookPresets.SelectedPreset);
+                var direction = evt.ClickType == MouseClickType.Left ? 1 : -1;
+                Service.Configuration.HookPresets.SelectedPreset = presets[(index + direction + presets.Count) % presets.Count];
+                Service.Save();
+            },
+            $"{Name}Presets",
+            () => Service.Configuration.DtrPresetBarEnabled && Player.Job is ECommons.ExcelServices.Job.FSH && Service.Configuration.HookPresets.SelectedPreset != null
+        );
     }
 }

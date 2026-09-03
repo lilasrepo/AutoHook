@@ -15,11 +15,7 @@ public class BaitFishClass : IComparable<BaitFishClass> {
     };
 
     [JsonIgnore]
-    // porting-note(api13): upstream resolves this through Svc.UnlockState, a Dalamud service that
-    // does not exist at this API level. Reporting false (B1) only costs the advisory chat warning
-    // about an unowned folklore tome - it never blocks fishing.
-    // TODO(api13): restore if the TC runtime ever exposes an unlock-state service.
-    public bool IsLocked => false;
+    public bool IsLocked => Svc.Data.GetExcelSheet<FishRow>().FirstOrNull(r => r.Item.RowId == Id) is { GatheringSubCategory.ValueNullable.Item.RowId: not 0, GatheringSubCategory.ValueNullable.Item.Value: var book } && !Svc.UnlockState.IsItemUnlocked(book);
 
     public int Id;
 

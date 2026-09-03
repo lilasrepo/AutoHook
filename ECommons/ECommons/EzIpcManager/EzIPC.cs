@@ -1,4 +1,5 @@
-﻿using ECommons.DalamudServices;
+using Dalamud.Plugin.Ipc;
+using ECommons.DalamudServices;
 using ECommons.Logging;
 using ECommons.Reflection;
 using System;
@@ -112,23 +113,19 @@ public static class EzIPC
                     var ipcName = attr.IPCName ?? reference.Name;
                     ipcName = ipcName.Replace("%m", reference.Name);
                     ipcName = ipcName.Replace("%p", Svc.PluginInterface.InternalName);
-                    var isNonGenericAction = reference.UnionType == typeof(Action);
-                    // porting-note(api13): the a388ee2 anchor still calls GetGenericTypeDefinition() unguarded,
-                    // which throws on non-generic custom delegate types. ECommons HEAD fixed this by
-                    // rewriting the whole path onto ReflectionHelper.AnalyzeDelegateField; that graft is
-                    // far larger than the defect, so keep the narrowing IsGenericType guard proven at API12.
-                    if(isNonGenericAction || (reference.UnionType.IsGenericType && reference.UnionType.GetGenericTypeDefinition().EqualsAny([.. FuncTypes, .. ActionTypes])))
+                    var delegateInfo = ReflectionHelper.AnalyzeDelegateField(reference);
+                    if(delegateInfo.IsDelegate)
                     {
                         var wrapper = attr.Wrapper == SafeWrapper.Inherit ? safeWrapper : attr.Wrapper;
                         if(!ECommonsMain.ReducedLogging)
                         {
                             PluginLog.Debug($"[EzIPC Subscriber] Attempting to assign IPC method to {instanceType.Name}.{reference.Name} with wrapper {wrapper}");
                         }
-                        var isAction = isNonGenericAction || reference.UnionType.GetGenericTypeDefinition().EqualsAny(ActionTypes);
-                        var genericArgsLen = reference.UnionType.GetGenericArguments().Length;
-                        var reg = FindIpcSubscriber(genericArgsLen + (isAction ? 1 : 0)) ?? throw new NullReferenceException("Could not retrieve GetIpcSubscriber. Did you called EzIPC.Init before ECommonsMain.Init or specified more than 9 arguments?");
-                        var genericArgs = reference.UnionType.IsGenericType ? reference.UnionType.GetGenericArguments() : [];
-                        var adjustedGenericArgs = isAction ? [.. genericArgs, attr.ActionLastGenericType] : genericArgs;
+                        var isAction = delegateInfo.ReturnType == null;
+                        var genericArgsLen = delegateInfo.ParameterTypes.Length;
+                        var reg = FindIpcSubscriber(genericArgsLen + 1) ?? throw new NullReferenceException("Could not retrieve GetIpcSubscriber. Did you called EzIPC.Init before ECommonsMain.Init or specified more than 9 arguments?");
+                        var genericArgs = delegateInfo.ParameterTypes;
+                        Type[] adjustedGenericArgs = isAction ? [.. genericArgs, attr.ActionLastGenericType] : [.. genericArgs, delegateInfo.ReturnType];
                         var genericMethod = reg.MakeGenericMethod(adjustedGenericArgs);
                         var name = attr.ApplyPrefix ? $"{prefix}.{ipcName}" : ipcName;
                         var callerInfo = genericMethod.Invoke(Svc.PluginInterface, [name])!;
@@ -137,13 +134,37 @@ public static class EzIPC
                         {
                             var safeWrapperObj = CreateSafeWrapper(wrapper, adjustedGenericArgs) ?? throw new NullReferenceException("Safe wrapper creation failed. Please report this exception to developer.");
                             var safeWrapperMethod = safeWrapperObj.GetType().GetMethod(isAction ? "InvokeAction" : "InvokeFunction", ReflectionHelper.AllFlags);
+                            // porting-note(api13): SafeWrapper.Subscriber is typed as the NON-generic
+                            // Dalamud.Plugin.Ipc.ICallGateSubscriber. api13's CallGatePubSub<...> implements
+                            // ICallGateProvider (non-generic) and ICallGateSubscriber<...> (generic) but NOT
+                            // the non-generic subscriber interface -- api15 added that. Assigning therefore
+                            // throws, and the catch below logs it as an ERROR in dalamud.log for every single
+                            // IPC binding at startup. Behaviour is unaffected: SafeWrapper only reads
+                            // `Subscriber?.HasAction/HasFunction`, and a null Subscriber makes the `?.` yield
+                            // null, which its `== false` checks treat as "assume available". So test first and
+                            // skip, rather than throwing and logging noise.
+                            if(callerInfo is ICallGateSubscriber)
+                            {
+                                try
+                                {
+                                    safeWrapperObj.SetFoP("Subscriber", callerInfo);
+                                }
+                                catch(Exception e)
+                                {
+                                    e.Log();
+                                }
+                            }
                             safeWrapperObj.SetFoP(isAction ? "Action" : "Function", invocationDelegate);
-                            reference.SetValue(instance, ReflectionHelper.CreateDelegate(safeWrapperMethod, safeWrapperObj));
+                            ReflectionHelper.AssignDelegateToField(reference, instance, ReflectionHelper.CreateDelegate(safeWrapperMethod, safeWrapperObj));
                         }
                         else
                         {
-                            reference.SetValue(instance, invocationDelegate);
+                            ReflectionHelper.AssignDelegateToField(reference, instance, invocationDelegate);
                         }
+                    }
+                    else
+                    {
+                        PluginLog.Warning($"Not a delegate: {reference.Name}");
                     }
                 }
             }
@@ -211,20 +232,28 @@ public static class EzIPC
                     var ipcName = attr.IPCName ?? reference.Name;
                     ipcName = ipcName.Replace("%m", reference.Name);
                     ipcName = ipcName.Replace("%p", Svc.PluginInterface.InternalName);
-                    var isNonGenericAction = reference.UnionType == typeof(Action);
-                    // porting-note(api13): same IsGenericType guard as subscriber init (above).
-                    if(isNonGenericAction || (reference.UnionType.IsGenericType && reference.UnionType.GetGenericTypeDefinition().EqualsAny(ActionTypes)))
+                    var delegateInfo = ReflectionHelper.AnalyzeDelegateField(reference);
+                    if(delegateInfo.IsDelegate)
                     {
                         if(!ECommonsMain.ReducedLogging)
                         {
                             PluginLog.Debug($"[EzIPC Provider] Attempting to assign IPC event to {instanceType.Name}.{reference.Name}");
                         }
-                        var reg = FindIpcProvider(reference.UnionType.GetGenericArguments().Length + 1) ?? throw new NullReferenceException("Could not retrieve GetIpcProvider. Did you called EzIPC.Init before ECommonsMain.Init or specified more than 9 arguments?");
-                        var genericArgs = reference.UnionType.IsGenericType ? reference.UnionType.GetGenericArguments() : [];
+                        if(delegateInfo.ReturnType != null)
+                        {
+                            throw new InvalidOperationException($"Only void-returning delegates may be registered as events");
+                        }
+                        var genericArgsLen = delegateInfo.ParameterTypes.Length;
+                        var reg = FindIpcProvider(genericArgsLen + 1) ?? throw new NullReferenceException("Could not retrieve GetIpcProvider. Did you called EzIPC.Init before ECommonsMain.Init or specified more than 9 arguments?");
+                        var genericArgs = delegateInfo.ParameterTypes;
                         var genericMethod = reg.MakeGenericMethod([.. genericArgs, attr.ActionLastGenericType]);
                         var name = attr.ApplyPrefix ? $"{prefix}.{ipcName}" : ipcName;
                         var callerInfo = genericMethod.Invoke(Svc.PluginInterface, [name])!;
-                        reference.SetValue(instance, ReflectionHelper.CreateDelegate(callerInfo.GetType().GetMethod("SendMessage"), callerInfo));
+                        ReflectionHelper.AssignDelegateToField(reference, instance, ReflectionHelper.CreateDelegate(callerInfo.GetType().GetMethod("SendMessage"), callerInfo));
+                    }
+                    else
+                    {
+                        PluginLog.Warning($"Not a delegate: {reference.Name}");
                     }
                 }
             }

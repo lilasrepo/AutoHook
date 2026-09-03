@@ -1,4 +1,4 @@
-﻿using Dalamud.Bindings.ImGui;
+using Dalamud.Bindings.ImGui;
 using ECommons.DalamudServices;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using FFXIVClientStructs.FFXIV.Component.GUI;
@@ -6,7 +6,7 @@ using Lumina.Excel.Sheets;
 using System.Collections.Generic;
 using System.Linq;
 using Callback = ECommons.Automation.Callback;
-using ValueType = FFXIVClientStructs.FFXIV.Component.GUI.ValueType;
+
 
 namespace ECommons.UIHelpers.AddonMasterImplementations;
 
@@ -38,20 +38,15 @@ public partial class AddonMaster
         // 1064 - Start of ItemIds
         // 454 - Start of Shop Price
 
-        public class ShopItemInfo(ShopExchangeCurrency master, int index)
+        public class ShopItemInfo(ShopExchangeCurrency master)
         {
             public uint ItemId;
+            public uint Index;
             public uint CostAmount;
             public void Select(int amount = 1)
             {
-                Callback.Fire(master.Base, true, 0, index, amount);
+                Callback.Fire(master.Base, true, 0, Index, amount);
             }
-        }
-
-        public class CostInfo
-        {
-            public uint itemId;
-            public uint cost;
         }
 
         /// <summary>
@@ -72,9 +67,17 @@ public partial class AddonMaster
                     else
                     {
                         var costAmount = Addon->AtkValues[454 + (i * 1)].UInt;
-                        var newEntry = new ShopItemInfo(this, i)
+                        // porting-note(TC game 7.20): upstream reads the callback index out of an
+                        // index-mapping array the 7.5 addon added at AtkValues[1310..]. That array
+                        // does not exist here, so reading it yields out-of-range garbage and the
+                        // purchase callback fires with the wrong row. ECommons 3.0.1.29 -- the
+                        // revision that shipped and worked on this client -- used the loop counter,
+                        // which is the correct index on this UI layout.
+                        var index = (uint)i;
+                        var newEntry = new ShopItemInfo(this)
                         {
                             ItemId = itemId,
+                            Index = index,
                             CostAmount = costAmount
                         };
                         ret.Add(newEntry);

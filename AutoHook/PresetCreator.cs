@@ -120,7 +120,7 @@ public class PresetCreator {
 
         var ws = Service.WorldState;
         var cordials = FishSolverBridge.ReadCordialInventory(ws.Player.GetItemCount);
-        var fisherLevel = Svc.PlayerState.GetClassJobLevel(18, shouldGetSynced: false);
+        var fisherLevel = Svc.PlayerState.GetClassJobLevel(Sheets.GetRow<ClassJob>(18));
         var plan = GameRes.FishSolver.Solve(
             _selectedTargetFish!.ItemId,
             fisherLevel,
@@ -203,7 +203,7 @@ public class PresetCreator {
         var ws = Service.WorldState;
         var cordials = FishSolverBridge.ReadCordialInventory(ws.Player.GetItemCount);
         var presetName = ResolvePresetName(AutoV2Tag);
-        var fisherLevel = Svc.PlayerState.GetClassJobLevel(18, shouldGetSynced: false);
+        var fisherLevel = Svc.PlayerState.GetClassJobLevel(Sheets.GetRow<ClassJob>(18));
 
         var preset = GameRes.FishSolver.BuildPreset(_selectedTargetFish.ItemId, fisherLevel, (int)ws.Player.MaxGp, presetName, cordials);
         if (preset == null) {

@@ -88,7 +88,7 @@ public static class OceanGoalCatalog {
         => PlayerState.Instance()->IsFishCaught(fishParameterId);
 
     public static unsafe bool IsLevellingNeeded()
-        => Svc.PlayerState.GetClassJobLevel(18, shouldGetSynced: false) < PlayerState.Instance()->MaxLevel;
+        => Svc.PlayerState.GetClassJobLevel(Sheets.GetRow<ClassJob>(18)) < PlayerState.Instance()->MaxLevel;
 
     public static List<uint> GetEligibleAchievementIds(uint routeId, bool skipIfAcquired = true) {
         var partySize = Math.Max(1, Service.WorldState.Party.QueuedWithContentIds.Count);

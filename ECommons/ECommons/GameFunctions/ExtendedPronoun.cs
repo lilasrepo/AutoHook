@@ -1,4 +1,4 @@
-﻿using Dalamud.Game.ClientState.Conditions;
+using Dalamud.Game.ClientState.Conditions;
 using Dalamud.Game.ClientState.Objects.SubKinds;
 using ECommons.DalamudServices;
 using FFXIVClientStructs.FFXIV.Client.Game.Object;
@@ -9,6 +9,7 @@ using System.Runtime.CompilerServices;
 using System.Security.Principal;
 
 namespace ECommons.GameFunctions;
+
 
 [Obsolete("Use ExtendedPronoun instead of FakePronoun")]
 public static unsafe class FakePronoun

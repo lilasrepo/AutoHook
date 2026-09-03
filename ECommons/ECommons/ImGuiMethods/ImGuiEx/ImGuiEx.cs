@@ -37,6 +37,92 @@ public static unsafe partial class ImGuiEx
     public static ImGuiTableFlags DefaultTableFlags = ImGuiTableFlags.NoSavedSettings | ImGuiTableFlags.RowBg | ImGuiTableFlags.Borders | ImGuiTableFlags.SizingFixedFit;
     private static Dictionary<string, int> SelectedPages = [];
 
+    public static void PushStyleVar(IEnumerable<ImGuiStyleVar> styleVars, Vector2 value)
+    {
+        foreach(var x in styleVars)
+        {
+            ImGui.PushStyleVar(x, value);
+        }
+    }
+
+    public static void PushStyleVar(IEnumerable<ImGuiStyleVar> styleVars, float value)
+    {
+        foreach(var x in styleVars)
+        {
+            ImGui.PushStyleVar(x, value);
+        }
+    }
+
+    public static void PushStyleColor(IEnumerable<ImGuiCol> col, Vector4 value)
+    {
+        foreach(var x in col)
+        {
+            ImGui.PushStyleColor(x, value);
+        }
+    }
+
+    public static void PushStyleColor(IEnumerable<ImGuiCol> col, uint value)
+    {
+        foreach(var x in col)
+        {
+            ImGui.PushStyleColor(x, value);
+        }
+    }
+
+    /// <inheritdoc cref="ImGuiEx.TryGetTableSortDirection(out ImGuiSortDirection, out int, out bool)"/>
+    public static bool TryGetTableSortDirection(out bool isAscending) => TryGetTableSortDirection(out isAscending, out _, out _);
+
+    /// <inheritdoc cref="ImGuiEx.TryGetTableSortDirection(out ImGuiSortDirection, out int, out bool)"/>
+    public static bool TryGetTableSortDirection(out bool isAscending, out int column) => TryGetTableSortDirection(out isAscending, out column, out _);
+
+    /// <summary>
+    /// Gets table sort direction in a more civilized manner.
+    /// </summary>
+    /// <param name="isAscending">Whether sorting is ascending or not</param>
+    /// <param name="column">Which column is being sorted</param>
+    /// <param name="isSortDirectionDirty">Whether an user just requested sorting</param>
+    /// <returns>Whether table is currently in a sorted state</returns>
+    public static bool TryGetTableSortDirection(out bool isAscending, out int column, out bool isSortDirectionDirty)
+    {
+        if(ImGui.TableGetSortSpecs().IsNull || ImGui.TableGetSortSpecs().Handle == null || ImGui.TableGetSortSpecs().Specs.Handle == null || ImGui.TableGetSortSpecs().SpecsCount == 0)
+        {
+            isSortDirectionDirty = false;
+            isAscending = default;
+            column = 0;
+            return false;
+        }
+        isSortDirectionDirty = ImGui.TableGetSortSpecs().SpecsDirty;
+        column = ImGui.TableGetSortSpecs().Specs.ColumnIndex;
+        isAscending = ImGui.TableGetSortSpecs().Specs.SortDirection == ImGuiSortDirection.Ascending;
+        return ImGui.TableGetSortSpecs().Specs.SortDirection != ImGuiSortDirection.None;
+    }
+
+    /// <summary>
+    /// Puts simple text into table columns. Only to be used within a table.
+    /// </summary>
+    /// <param name="texts"></param>
+    public static void SimpleTableTextColumns(params string[] texts)
+    {
+        foreach(var x in texts)
+        {
+            ImGui.TableNextColumn();
+            ImGuiEx.Text(x ?? "");
+        }
+    }
+
+    /// <summary>
+    /// Puts simple text into table columns. Only to be used within a table.
+    /// </summary>
+    /// <param name="texts"></param>
+    public static void SimpleTableTextColumns(Action<string> action, params string[] texts)
+    {
+        foreach(var x in texts)
+        {
+            ImGui.TableNextColumn();
+            action(x ?? "");
+        }
+    }
+
     /// <summary>
     /// Fully equals to <see cref="ImGui.DragFloat"/>.
     /// </summary>
@@ -73,19 +159,6 @@ public static unsafe partial class ImGuiEx
         fixed(byte* pUtf8 = utf8Bytes)
         {
             return ImGuiNative.ArrowButton(pUtf8, direction) != 0;
-        }
-    }
-
-    [Obsolete("Switch to ImGui.PushId", true)]
-    public static void PushID(string id)
-    {
-        if(id == null || id.Length == 0)
-        {
-            ImGui.PushID($"ECommonsDefaultID");
-        }
-        else
-        {
-            ImGui.PushID(id);
         }
     }
 
@@ -139,11 +212,24 @@ public static unsafe partial class ImGuiEx
     /// <param name="label"></param>
     /// <param name="result"></param>
     /// <returns></returns>
+    [OverloadResolutionPriority(1)]
     public static bool FilteringCheckbox(string label, out bool result)
     {
         var ret = false;
         ref var value = ref Ref<bool>.Get($"{ImGui.GetID(label)}_filter");
         if(ImGui.Checkbox(label, ref value))
+        {
+            ret = true;
+        }
+        result = value;
+        return ret;
+    }
+
+    public static bool FilteringCheckbox(string label, out bool? result)
+    {
+        var ret = false;
+        ref var value = ref Ref<bool?>.Get($"{ImGui.GetID(label)}_filter1");
+        if(ImGuiEx.Checkbox(label, ref value))
         {
             ret = true;
         }
@@ -328,6 +414,46 @@ public static unsafe partial class ImGuiEx
         }
     }
 
+    /// <summary>
+    /// Allows you to create simple "drag this item to quickly copy it" to allow user to quickly mass change it. Use it in for/foreach loops when drawing ImGui elements.
+    /// </summary>
+    /// <typeparam name="T">Must be a struct. For classes, there is <see cref="ImGuiEx.DragDropRepopulateClass{T}(string, T, Action{T})"/>.</typeparam>
+    /// <param name="dragDropIdentifier">Plugin-unique identifier, internal and invisible to used. Must be relatively short. </param>
+    /// <param name="data">Element's current data</param>
+    /// <param name="field">A field which will be assigned data value when dragged onto.</param>
+    public static void DragDropRepopulate<T>(string dragDropIdentifier, T? data, ref T? field) where T : struct
+    {
+        ImGuiEx.Tooltip("Drag this selector to other selectors to set their values to the same");
+        if(ImGui.BeginDragDropSource(ImGuiDragDropFlags.SourceNoPreviewTooltip))
+        {
+            try
+            {
+                ImGuiDragDrop.SetDragDropPayload<ENullable<T>>(dragDropIdentifier, (ENullable<T>)data);
+                ImGui.SetMouseCursor(ImGuiMouseCursor.ResizeAll);
+            }
+            catch(Exception e)
+            {
+                e.Log();
+            }
+            ImGui.EndDragDropSource();
+        }
+        if(ImGui.BeginDragDropTarget())
+        {
+            try
+            {
+                if(ImGuiDragDrop.AcceptDragDropPayload<ENullable<T>>(dragDropIdentifier, out var outId, ImGuiDragDropFlags.AcceptBeforeDelivery | ImGuiDragDropFlags.AcceptNoPreviewTooltip))
+                {
+                    field = outId;
+                }
+            }
+            catch(Exception e)
+            {
+                e.Log();
+            }
+            ImGui.EndDragDropTarget();
+        }
+    }
+
     /// <inheritdoc cref="Scale(float)"/>
     public static Vector2? Scale(this Vector2? v)
     {
@@ -372,9 +498,18 @@ public static unsafe partial class ImGuiEx
     /// <param name="extraFlags">Add extra flags to the table</param>
     /// <param name="flagsOverride">If <see langword="true"/>, <paramref name="extraFlags"/> will override <see cref="ImGuiEx.DefaultTableFlags"></see> completely</param>
     /// <returns>Same as <see cref="ImGui.BeginTable(ImU8String, int, ImGuiTableFlags, Vector2, float)"/></returns>
-    public static bool BeginDefaultTable(string id, string[] headers, bool drawHeader = true, ImGuiTableFlags extraFlags = ImGuiTableFlags.None, bool flagsOverride = false)
+    public static bool BeginDefaultTable(string id, string[] headers, bool drawHeader = true, ImGuiTableFlags extraFlags = ImGuiTableFlags.None, bool flagsOverride = false, ImGuiTableFlags? nullifyFlags = null)
     {
-        if(ImGui.BeginTable(id, headers.Length, flagsOverride ? extraFlags : DefaultTableFlags | extraFlags))
+        if(extraFlags.HasFlag(ImGuiTableFlags.SortTristate))
+        {
+            extraFlags |= ImGuiTableFlags.Sortable;
+        }
+        var flags = flagsOverride ? extraFlags : DefaultTableFlags | extraFlags;
+        if(nullifyFlags != null)
+        {
+            flags &= ~nullifyFlags.Value;
+        }
+        if(ImGui.BeginTable(id, headers.Length, flags))
         {
             DefaultTableColumns(headers, drawHeader);
             return true;
@@ -391,8 +526,26 @@ public static unsafe partial class ImGuiEx
     {
         foreach(var x in headers)
         {
-            var stretch = x.StartsWith('~');
-            ImGui.TableSetupColumn(stretch ? x[1..] : x, stretch ? ImGuiTableColumnFlags.WidthStretch : ImGuiTableColumnFlags.None);
+            var flags = ImGuiTableColumnFlags.None;
+            var startIndex = 0;
+            for(int i = 0; i < x.Length; i++)
+            {
+                if(x[i] == '~')
+                {
+                    flags |= ImGuiTableColumnFlags.WidthStretch;
+                    startIndex++;
+                }
+                else if(x[i] == '^')
+                {
+                    flags |= ImGuiTableColumnFlags.NoSort;
+                    startIndex++;
+                }
+                else
+                {
+                    break;
+                }
+            }
+            ImGui.TableSetupColumn(startIndex > 0 ? x[startIndex..] : x, flags);
         }
         if(drawHeader) ImGui.TableHeadersRow();
     }
@@ -525,7 +678,7 @@ public static unsafe partial class ImGuiEx
     /// <param name="usePadding"></param>
     /// <param name="action"></param>
     /// <param name="extraFlags"></param>
-    public static void TreeNodeCollapsingHeader(string name, bool usePadding, Action action, ImGuiTreeNodeFlags extraFlags = ImGuiTreeNodeFlags.None)
+    public static void TreeNodeCollapsingHeader(string name, bool usePadding, Action action, ImGuiTreeNodeFlags extraFlags = ImGuiTreeNodeFlags.None, Action? postHeaderAction = null)
     {
         ImGui.PushID("CollapsingHeaderHelperTable");
         ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, Vector2.Zero);
@@ -535,6 +688,7 @@ public static unsafe partial class ImGuiEx
             ImGui.TableNextRow();
             ImGui.TableNextColumn();
             var ret = TreeNode(name, ImGuiTreeNodeFlags.NoTreePushOnOpen | ImGuiTreeNodeFlags.Selected | extraFlags);
+            postHeaderAction?.Invoke();
             ImGui.PopStyleVar();
             if(ret)
             {
@@ -859,7 +1013,7 @@ public static unsafe partial class ImGuiEx
         {
             ImGui.SetCursorPos(cursor);
         }
-        if(ImGui.IsItemHovered())
+        if(helpText != null && ImGui.IsItemHovered())
         {
             ImGui.BeginTooltip();
             ImGui.PushTextWrapPos(ImGui.GetFontSize() * 35f);
@@ -1173,9 +1327,7 @@ public static unsafe partial class ImGuiEx
     {
         if(ImGui.IsItemHovered())
         {
-            ImGui.PushTextWrapPos(ImGui.GetFontSize() * 35f);
             SetTooltip(s);
-            ImGui.PopTextWrapPos();
         }
     }
 
@@ -1237,7 +1389,16 @@ public static unsafe partial class ImGuiEx
                         ImGui.PopStyleColor();
                     }
                     if(x.child) ImGui.BeginChild(x.name + "child");
-                    x.function();
+                    ImGui.PushID(x.name + "tab");
+                    try
+                    {
+                        x.function();
+                    }
+                    catch(Exception e)
+                    {
+                        e.Log();
+                    }
+                    ImGui.PopID();
                     if(x.child) ImGui.EndChild();
                     ImGui.EndTabItem();
                 }
