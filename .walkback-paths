@@ -9,3 +9,14 @@
 AutoHook/AutoHook.csproj
 clib/*
 global.json
+
+# Pinned 2026-09-07: AutoHook vendors ECommons **3.2.1.15** (the second canon, see memory
+# project_ecommons_3_2_1_15_second_canon). It has no doc/SUBMODULE_REGISTRY.md row, so the
+# source-transform exclusion list was empty and the `using ECommons.GameHelpers.LegacyPlayer;`
+# / `using Dalamud.Game.Player;` drop rules -- written for walk-back ECommons 3.0.0.7, where
+# those namespaces do not exist -- ran over the vendored 3.2.1.15 tree and stripped them from
+# GameFunctions/{FakeParty,PlayerFunctions}.cs and GameHelpers/{Player,LegacyPlayer}.cs
+# (CS0103 'Player' + CS1929 GetJob). Identical to the 2026-08-30 ICE failure; same remedy.
+# Upstream consumes ECommons as a NuGet package, so there is nothing upstream for this pin to
+# fence off at merge time -- its whole job is to fence off the SOURCE transforms.
+ECommons/*

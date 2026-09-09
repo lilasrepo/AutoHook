@@ -28,7 +28,7 @@ public static class OceanFishingSpotOverlay {
         var territoryIntendedUse = (FFXIVClientStructs.FFXIV.Client.Enums.TerritoryIntendedUse)GameMain.Instance()->CurrentTerritoryIntendedUseId;
         if (territoryIntendedUse is not FFXIVClientStructs.FFXIV.Client.Enums.TerritoryIntendedUse.OceanFishing) return;
         var dl = ImGui.GetBackgroundDrawList(ImGuiHelpers.MainViewport);
-        var player = Svc.Objects.LocalPlayer;
+        var player = Svc.ClientState.LocalPlayer;
         var inAnySpot = false;
 
         foreach (var region in AutoOceanFish.ValidFishingRegions) {

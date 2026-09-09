@@ -45,7 +45,7 @@ public sealed class AutoOceanFish(FishingManager fishingManager, uint zoneIndex)
         var rotation = position.X > 0 ? 1.5f : -1.5f;
         await MoveToDirectly(position, 0.25f);
         unsafe {
-            Svc.Objects.LocalPlayer?.Character->SetRotation(rotation);
+            Svc.ClientState.LocalPlayer?.Character->SetRotation(rotation);
         }
         await AvoidStacking(rotation);
     }
@@ -68,7 +68,7 @@ public sealed class AutoOceanFish(FishingManager fishingManager, uint zoneIndex)
 
             await MoveToDirectly(step, 0.1f);
             unsafe {
-                Svc.Objects.LocalPlayer?.Character->SetRotation(rotation);
+                Svc.ClientState.LocalPlayer?.Character->SetRotation(rotation);
             }
         }
     }
