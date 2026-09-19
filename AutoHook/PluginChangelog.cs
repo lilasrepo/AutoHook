@@ -5,6 +5,14 @@ namespace AutoHook;
 public static class PluginChangelog {
     public static readonly List<Version> Versions =
     [
+        new Version("6.0.0.96") {
+            Main = {
+                "Extra Options: retain hook/fish counters between fishing sessions",
+            },
+            Minor = {
+                "Goal zone area fixed. Should also stop trying to move no matter what once the zone has started."
+            }
+        },
         new Version("6.0.0.83") {
             Main = {
                 "Added an Intuition gained/lost event to conditions."

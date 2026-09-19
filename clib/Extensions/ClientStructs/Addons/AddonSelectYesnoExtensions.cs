@@ -7,7 +7,7 @@ public static unsafe class AddonSelectYesnoExtensions {
     extension(AddonSelectYesno) {
         public static void Yes() {
             var addon = RaptureAtkUnitManager.Instance()->GetAddonByName("SelectYesno");
-            if (addon != null && addon->IsReady) {
+            if (AtkUnitBaseExtensions.IsReadyOnTC(addon)) {
                 var evt = new AtkEvent() { Listener = &addon->AtkEventListener, Target = &AtkStage.Instance()->AtkEventTarget };
                 var data = new AtkEventData();
                 addon->ReceiveEvent(AtkEventType.ButtonClick, 0, &evt, &data);
@@ -16,7 +16,7 @@ public static unsafe class AddonSelectYesnoExtensions {
 
         public static void No() {
             var addon = RaptureAtkUnitManager.Instance()->GetAddonByName("SelectYesno");
-            if (addon != null && addon->IsReady) {
+            if (AtkUnitBaseExtensions.IsReadyOnTC(addon)) {
                 var evt = new AtkEvent() { Listener = &addon->AtkEventListener, Target = &AtkStage.Instance()->AtkEventTarget };
                 var data = new AtkEventData();
                 addon->ReceiveEvent(AtkEventType.ButtonClick, 1, &evt, &data);

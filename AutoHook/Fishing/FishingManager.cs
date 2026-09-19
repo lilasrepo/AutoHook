@@ -326,13 +326,17 @@ public partial class FishingManager : IDisposable {
     // WSU doesn't refresh when not on fisher so gotta clear block casting cause it will affect other jobs
     private void ClearWorldState() {
         var f = Ws.Fishing;
-        if (!Ws.Player.BlockCasting && f.FishingState == FishingState.NotFishing && f.FishingStep == FishingSteps.None && f.PreviousFishingState == FishingState.NotFishing)
+        var sf = Ws.Spearfishing;
+        if (!Ws.Player.BlockCasting && f.FishingState == Api13FishingState.None && f.FishingStep == FishingSteps.None && f.PreviousFishingState == Api13FishingState.None && !sf.SessionActive && !sf.WindowOpen && sf.FishCaughtCounts.Count == 0)
             return;
 
         Ws.Execute(new WorldState.OpSetBlockCasting(false));
         Ws.Execute(new FishingInfo.OpSetFishingStep(FishingSteps.None));
-        Ws.Execute(new FishingInfo.OpSetPreviousFishingState(FishingState.NotFishing));
-        Ws.Execute(new FishingInfo.OpFishingState(FishingState.NotFishing, new BaitInfo(0, null, 0, false)));
+        Ws.Execute(new FishingInfo.OpSetPreviousFishingState(Api13FishingState.None));
+        Ws.Execute(new FishingInfo.OpFishingState(Api13FishingState.None, new BaitInfo(0, null, 0, false)));
+
+        if (sf.SessionActive || sf.WindowOpen || !sf.Spot.IsEmpty || sf.FishCaughtCounts.Count > 0 || sf.Wariness != 0)
+            Ws.Execute(new SpearfishingInfo.OpEndSession());
     }
 
     private void InitFinishing() {
@@ -425,16 +429,21 @@ public partial class FishingManager : IDisposable {
     }
 
     private void OnBite() {
-        UpdateStatusAndTimer();
-        var currentHook = GetHookCfg();
-        DecisionLog.Start("Hook Preset")
-            .Chose(currentHook.Enabled ? "Enabled preset on bite" : "No enabled preset on bite");
-        _fishingTimer.Stop();
+        try {
+            UpdateStatusAndTimer();
+            var currentHook = GetHookCfg();
+            DecisionLog.Start("Hook Preset")
+                .Chose(currentHook.Enabled ? "Enabled preset on bite" : "No enabled preset on bite");
+            _fishingTimer.Stop();
 
-        if (Ws.Player.HasStatus(IDs.Status.Salvage) && GetAutoCastCfg().ChumAnimationCancel)
-            PlayerRes.CastAction(IDs.Actions.Salvage);
+            if (Ws.Player.HasStatus(IDs.Status.Salvage) && GetAutoCastCfg().ChumAnimationCancel)
+                PlayerRes.CastAction(IDs.Actions.Salvage);
 
-        HookFish(Ws.Fishing.BiteInfo.TugType.ToBiteType(), currentHook);
+            HookFish(Ws.Fishing.BiteInfo.TugType.ToBiteType(), currentHook);
+        }
+        finally {
+            Ws.Execute(new FishingInfo.OpInvalidateCastSnapshot());
+        }
     }
 
     private void HookFish(BiteType bite, HookConfig currentHook) {
@@ -529,15 +538,19 @@ public partial class FishingManager : IDisposable {
         ClearStopAfterNextFish();
 
         Ws.Execute(new FishingInfo.OpSetFishingStep(FishingSteps.None));
-        Ws.Execute(new FishingInfo.OpResetFishCaught());
+
+        var retainCounters = GetExtraCfg() is { Enabled: true, RetainCountersBetweenSessions: true };
+        if (!retainCounters) {
+            Ws.Execute(new FishingInfo.OpResetFishCaught());
+            FishingHelper.Reset();
+        }
+
         Ws.Execute(new FishingInfo.OpClearSessionCatches());
 
         if (_fishingTimer.IsRunning)
             _fishingTimer.Reset();
 
         Service.Status = "";
-
-        FishingHelper.Reset();
 
         PlayerRes.CastActionNoDelay(IDs.Actions.Quit);
         PlayerRes.DelayNextCast();

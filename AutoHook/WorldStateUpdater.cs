@@ -1,3 +1,4 @@
+using AutoHook.Enums;
 using Dalamud.Game.ClientState.Objects.SubKinds;
 using Dalamud.Game.Inventory.InventoryEventArgTypes;
 using AutoHook.SeFunctions;
@@ -12,6 +13,7 @@ using FFXIVClientStructs.FFXIV.Client.Game.Object;
 using FFXIVClientStructs.FFXIV.Client.Game.WKS;
 using FFXIVClientStructs.FFXIV.Client.Network;
 using FFXIVClientStructs.FFXIV.Client.System.Framework;
+using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.Interop;
 using Lumina.Excel.Sheets;
@@ -82,8 +84,10 @@ public sealed class WorldStateUpdater : IDisposable {
     private readonly Dictionary<ulong, uint> _actionStatusScratch = [];
     private readonly Dictionary<ulong, int> _actionRecastScratch = [];
     private readonly Dictionary<uint, ushort> _dutyChargesScratch = [];
+    private readonly Dictionary<uint, int> _spearItemCountScratch = [];
 
     private bool _needInventoryUpdate = true;
+    private bool _spearItemCountsReady;
 
     public unsafe WorldStateUpdater() {
         _startQpc = Framework.Instance()->PerformanceCounterValue;
@@ -172,21 +176,24 @@ public sealed class WorldStateUpdater : IDisposable {
             if (ws.Player.FreeInventorySlots != stats.FreeSlots || ws.Player.ReduceableFishCount != stats.ReduceableFish)
                 ws.Execute(stats);
             _needInventoryUpdate = false;
+            ProcessSpearfishingCatches(ws);
         }
 
         UpdateSwimbaitIds(ws);
         UpdatePotCooldown(ws);
         UpdateBiteContext(ws, biteContext);
         UpdateIntuition(ws, biteContext);
+        UpdateSpearfishing(ws);
 
         var fishingState = ws.Fishing.FishingState;
-        if (CastSnapshotTransition(previousFishingState, fishingState))
+        if (ShouldCaptureCastSnapshot(previousFishingState, fishingState))
             ws.Execute(new FishingInfo.OpUpdateCastSnapshot(previousFishingState));
+        else if (ws.Fishing.CastSnapshot.Active && fishingState is not Api13FishingState.LineInWater and not FishingState.Bite)
+            ws.Execute(new FishingInfo.OpInvalidateCastSnapshot());
     }
 
-    private static bool CastSnapshotTransition(FishingState previous, FishingState current)
-        => previous != FishingState.LureFishing && current == FishingState.LureFishing
-           || previous == FishingState.LureFishing && current != FishingState.LureFishing;
+    private static bool ShouldCaptureCastSnapshot(FishingState previous, FishingState current)
+        => previous != Api13FishingState.LineInWater && current == Api13FishingState.LineInWater;
 
     public void RefreshFishingStateSnapshot() {
         if (Svc.ClientState.LocalPlayer?.ClassJob.RowId is not 18 || Svc.ClientState.LocalPlayer is null)
@@ -435,6 +442,106 @@ public sealed class WorldStateUpdater : IDisposable {
         if (ws.Fishing.Intuition == next)
             return;
         ws.Execute(new FishingInfo.OpIntuition(next));
+    }
+
+    private static unsafe void UpdateSpearfishing(WorldState ws) {
+        var windowOpen = false;
+        var wariness = 0;
+        var warinessMax = 0;
+        AddonSpearFishing.FishInfo lane0 = default;
+        AddonSpearFishing.FishInfo lane1 = default;
+        AddonSpearFishing.FishInfo lane2 = default;
+
+        // porting-note(api13): this tree's ECommons has no IGameGui.TryGetAddon<T> extension;
+        // TryGetAddonByName is the idiom AutoHook already uses elsewhere (AetherialReduction).
+        if (TryGetAddonByName<AddonSpearFishing>("SpearFishing", out var addon)
+            && addon != null
+            && addon->AtkUnitBase.WindowNode != null) {
+            windowOpen = true;
+            var gauge = addon->GaugeBar;
+            if (gauge != null) {
+                wariness = gauge->Values[0].ValueInt;
+                warinessMax = gauge->MaxValue;
+            }
+
+            lane0 = addon->Fish[0];
+            lane1 = addon->Fish[1];
+            lane2 = addon->Fish[2];
+        }
+
+        var sf = ws.Spearfishing;
+        if (sf.WindowOpen != windowOpen || sf.Wariness != wariness || sf.WarinessMax != warinessMax)
+            ws.Execute(new SpearfishingInfo.OpHud(windowOpen, wariness, warinessMax));
+
+        if (windowOpen && !sf.SessionActive)
+            ws.Execute(new SpearfishingInfo.OpSessionActive(true));
+
+        if (windowOpen) {
+            var spot = ResolveCurrentSpearfishingSpot();
+            if (!spot.IsEmpty && spot != sf.Spot)
+                ws.Execute(new SpearfishingInfo.OpSpot(spot));
+        }
+
+        if (!FishInfoEquals(lane0, sf.Lane0) || !FishInfoEquals(lane1, sf.Lane1) || !FishInfoEquals(lane2, sf.Lane2))
+            ws.Execute(new SpearfishingInfo.OpFishLanes(lane0, lane1, lane2));
+    }
+
+    private static bool FishInfoEquals(AddonSpearFishing.FishInfo a, AddonSpearFishing.FishInfo b)
+        => a.Available == b.Available && a.InverseDirection == b.InverseDirection && a.GuaranteedLarge == b.GuaranteedLarge && a.Size == b.Size && a.Speed == b.Speed;
+
+    private static SpearfishingSpotState ResolveCurrentSpearfishingSpot() {
+        if (Svc.Targets.Target is not { ObjectKind: Dalamud.Game.ClientState.Objects.Enums.ObjectKind.GatheringPoint, BaseId: var pointId })
+            return SpearfishingSpotState.Empty;
+
+        if (!GameRes.SpearfishingSpotsByPointId.TryGetValue(pointId, out var spot))
+            return new SpearfishingSpotState(pointId, 0, 0, false);
+
+        return new SpearfishingSpotState(spot.GatheringPointId, spot.GatheringPointBaseId, spot.NotebookId, spot.IsShadowNode);
+    }
+
+    private void ProcessSpearfishingCatches(WorldState ws) {
+        if (GameRes.SpearfishItemIds.Count == 0)
+            return;
+
+        _spearItemCountScratch.Clear();
+        foreach (var itemId in GameRes.SpearfishItemIds) {
+            var count = ws.Player.GetItemCount(itemId);
+            if (count > 0)
+                _spearItemCountScratch[itemId] = count;
+        }
+
+        if (!_spearItemCountsReady) {
+            CommitSpearItemBaseline();
+            return;
+        }
+
+        if (!ws.Spearfishing.SessionActive) {
+            CommitSpearItemBaseline();
+            return;
+        }
+
+        foreach (var (itemId, count) in _spearItemCountScratch) {
+            var prev = _spearItemBaseline.GetValueOrDefault(itemId);
+            if (count > prev) {
+                var gained = count - prev;
+                while (gained > 0) {
+                    var chunk = (byte)Math.Min(gained, byte.MaxValue);
+                    ws.Execute(new SpearfishingInfo.OpAddFishCaught(itemId, chunk));
+                    gained -= chunk;
+                }
+            }
+        }
+
+        CommitSpearItemBaseline();
+    }
+
+    private readonly Dictionary<uint, int> _spearItemBaseline = [];
+
+    private void CommitSpearItemBaseline() {
+        _spearItemBaseline.Clear();
+        foreach (var (itemId, count) in _spearItemCountScratch)
+            _spearItemBaseline[itemId] = count;
+        _spearItemCountsReady = true;
     }
 
     private static BiteContext CollectBiteContext(WorldState ws) {

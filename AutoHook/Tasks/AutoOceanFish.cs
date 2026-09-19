@@ -1,6 +1,8 @@
 using clib.Extensions;
 using clib.TaskSystem;
 using Dalamud.Game.ClientState.Objects.SubKinds;
+using Dalamud.Plugin.Services;
+using FFXIVClientStructs.FFXIV.Client.Game.InstanceContent;
 using System.Numerics;
 
 namespace AutoHook.Tasks;
@@ -12,8 +14,10 @@ public sealed class AutoOceanFish(FishingManager fishingManager, uint zoneIndex)
     internal static readonly FishingSpotRegion[] ValidFishingRegions = [
         new("Left A", 7f, 7.25f, 6.711f, -12f, -4f),
         new("Left B", 7f, 7.25f, 6.711f, -2f, 3f),
-        new("Right", -7.25f, -7f, 6.711f, -12f, 3.5f),
+        new("Right", -7.25f, -7f, 6.711f, -11f, 3.5f),
     ];
+
+    private bool IsZoneStarted() => Service.WorldState.OceanFishing.Status is InstanceContentOceanFishing.OceanFishingStatus.Fishing;
 
     protected override async Task Execute() {
         using var scope = BeginScope(nameof(AutoOceanFish));
