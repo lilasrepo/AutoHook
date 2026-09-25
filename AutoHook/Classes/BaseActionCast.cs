@@ -11,13 +11,17 @@ using System.Numerics;
 namespace AutoHook.Classes;
 
 public abstract class BaseActionCast {
+    private const int ActionControlColumn = 200;
+
     protected BaseActionCast(uint id, ActionType actionType = ActionType.Action) {
         Id = id;
         Enabled = false;
 
         ActionType = actionType;
 
-        if (actionType == ActionType.Action && id != IDs.Actions.ThaliaksFavor)
+        if (actionType == ActionType.Action && id is not IDs.Actions.ThaliaksFavor and not IDs.Actions.NaturesBounty and not IDs.Actions.Collect
+            and not IDs.Actions.BaitedBreath and not IDs.Actions.ElectricCurrent and not IDs.Actions.VeteranTrade
+            and not IDs.Actions.VitalSight)
             GpThreshold = (int)PlayerRes.CastActionCost(Id, ActionType);
     }
 
@@ -42,6 +46,7 @@ public abstract class BaseActionCast {
     public virtual bool RequiresTimeWindow() => false;
 
     public virtual bool RestoresGp => false;
+    public virtual bool ShowGpThreshold => true;
 
     public virtual int Priority { get; set; }
 
@@ -53,7 +58,7 @@ public abstract class BaseActionCast {
         => ConditionSet.PassesOrUnconfigured();
 
     protected void DrawAutoCastConditions(bool showSubPrefix = true)
-        => ConditionSet = ConditionUi.DrawConditionSet(UIStrings.Conditions, ConditionSet, ConditionScope.AutoCast, showAdvanced: true, showSubPrefix: showSubPrefix);
+        => ConditionSet = ConditionUi.DrawConditionSet(UIStrings.Conditions, ConditionSet, IsSpearFishing ? ConditionScope.Spearfishing : ConditionScope.AutoCast, showAdvanced: true, showSubPrefix: showSubPrefix);
 
     public void DrawFishCaughtActionOptions()
         => DrawAutoCastConditions(showSubPrefix: false);
@@ -74,6 +79,9 @@ public abstract class BaseActionCast {
 
         if (DoesCancelMooch() && Service.WorldState.IsMoochAvailable() && DontCancelMooch && !ignoreCurrentMooch)
             return "Would cancel mooch";
+
+        if (RestoresGp && Service.WorldStateUpdater.HasPendingGp)
+            return "GP pending";
 
         var condition = CastCondition();
         var currentGp = Service.WorldState.Player.CurrentGp;
@@ -143,8 +151,10 @@ public abstract class BaseActionCast {
 
             var x = ImGui.GetCursorPosX();
             if (ImGui.TreeNodeEx(label, ImGuiTreeNodeFlags.FramePadding)) {
-                ImGui.SameLine(200.Scaled());
-                DrawGpThreshold();
+                if (ShowGpThreshold) {
+                    ImGui.SameLine(ActionControlColumn.Scaled());
+                    DrawGpThreshold();
+                }
                 DrawUpDownArrows(availableActs);
                 ImGui.SetCursorPosX(x);
                 using (ImRaii.Group()) {
@@ -154,8 +164,10 @@ public abstract class BaseActionCast {
                 ImGui.TreePop();
             }
             else {
-                ImGui.SameLine(200.Scaled());
-                DrawGpThreshold();
+                if (ShowGpThreshold) {
+                    ImGui.SameLine(ActionControlColumn.Scaled());
+                    DrawGpThreshold();
+                }
                 DrawUpDownArrows(availableActs);
             }
         }
@@ -165,8 +177,10 @@ public abstract class BaseActionCast {
 
             ImGui.SameLine(0, 28.Scaled());
             ImGui.Text(label);
-            ImGui.SameLine(200.Scaled());
-            DrawGpThreshold();
+            if (ShowGpThreshold) {
+                ImGui.SameLine(ActionControlColumn.Scaled());
+                DrawGpThreshold();
+            }
             DrawUpDownArrows(availableActs);
         }
     }

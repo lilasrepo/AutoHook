@@ -10,12 +10,18 @@
 
     <PropertyGroup>
         <Authors>Det</Authors>
-        <Version>5.0.0.5100</Version>
+        <Version>5.0.0.5102</Version>
         <LangVersion>preview</LangVersion>
 		<GenerateErrorForMissingTargetingPacks>false</GenerateErrorForMissingTargetingPacks>
     </PropertyGroup>
 
-    <ItemGroup><EmbeddedResource Include="Assets\Fishy.png" />
+    <ItemGroup>
+        <!-- porting-note(api13): this csproj is PINNED, so upstream's data-file item never reached it;
+             without it fish_list.json is not in bin/ and every spearfishing pool reads empty. -->
+        <None Include="Data\FishData\*">
+            <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+        </None>
+        <EmbeddedResource Include="Assets\Fishy.png" />
 		<EmbeddedResource Include="Assets\Fishy_g.png" />
     </ItemGroup>
 

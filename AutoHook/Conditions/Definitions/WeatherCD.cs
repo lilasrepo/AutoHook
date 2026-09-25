@@ -8,7 +8,8 @@ namespace AutoHook.Conditions.Definitions;
 public sealed class WeatherCD : SnapshottableConditionDefinition {
     public override string Id => nameof(WeatherCD);
     public override string Name => "Weather";
-    public override ConditionScopeFlags AllowedScopes => ConditionScopeFlags.Hook | ConditionScopeFlags.FishIgnore | ConditionScopeFlags.AutoCast;
+    public override ConditionScopeFlags AllowedScopes
+        => ConditionScopeFlags.Hook | ConditionScopeFlags.FishIgnore | ConditionScopeFlags.AutoCast | ConditionScopeFlags.Spearfishing;
 
     protected override bool EvaluateLive(WorldState world, IReadOnlyDictionary<string, object> parameters) {
         var ids = GetWeatherIds(parameters);

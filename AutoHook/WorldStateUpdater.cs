@@ -10,6 +10,7 @@ using FFXIVClientStructs.FFXIV.Client.Game.Event;
 using FFXIVClientStructs.FFXIV.Client.Game.Group;
 using FFXIVClientStructs.FFXIV.Client.Game.InstanceContent;
 using FFXIVClientStructs.FFXIV.Client.Game.Object;
+using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using FFXIVClientStructs.FFXIV.Client.Game.WKS;
 using FFXIVClientStructs.FFXIV.Client.Network;
 using FFXIVClientStructs.FFXIV.Client.System.Framework;
@@ -17,7 +18,9 @@ using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.Interop;
 using Lumina.Excel.Sheets;
+using System.Numerics;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using AchievementStruct = FFXIVClientStructs.FFXIV.Client.Game.UI.Achievement;
 using FishingState = FFXIVClientStructs.FFXIV.Client.Game.Event.FishingState;
 
@@ -64,6 +67,9 @@ public sealed class WorldStateUpdater : IDisposable {
     // helpers come from an ECommons revision newer than the one pinned here, and the field is
     // write-only even upstream - nothing ever reads it (BuildTrackedFishingActions reflects over
     // IDs.Actions instead). Nothing is lost by not reimplementing them.
+    private readonly Hook<ActionEffectHandler.Delegates.Receive>? _receiveActionEffectHook;
+    private unsafe delegate void EffectResultDetourDelegate(uint targetId, byte* packet, byte replaying);
+    private readonly Hook<EffectResultDetourDelegate>? _effectResultHook;
     private static readonly (uint Id, ActionType Type)[] TrackedFishingActions = BuildTrackedFishingActions();
     private static readonly (uint Id, ActionType Type)[] TrackedAutoCastItems =
     [
@@ -102,6 +108,24 @@ public sealed class WorldStateUpdater : IDisposable {
             // A signature that no longer resolves must degrade, not kill the plugin.
             Svc.Log.Error(e, "[WorldStateUpdater] catch/tug feed unavailable - fish counting and tug type will not update.");
         }
+        // porting-note(api13): ActionEffectHandler.Receive is a CS 6966 [MemberFunction], so its
+        // address is the TC one. The EffectResult sig is upstream's hard-coded pattern with no TC
+        // source (CLAUDE.md §4 step 7 C) - guarded so a miss only loses the spearfishing
+        // effect-result feed, and _effectResultHook stays null.
+        try {
+            _receiveActionEffectHook = Svc.Hook.HookFromAddress<ActionEffectHandler.Delegates.Receive>((nint)ActionEffectHandler.MemberFunctionPointers.Receive, ActionEffectDetour);
+            _receiveActionEffectHook.Enable();
+        }
+        catch (Exception e) {
+            Svc.Log.Error(e, "[WorldStateUpdater] action-effect feed unavailable.");
+        }
+        try {
+            _effectResultHook = Svc.Hook.HookFromSignature<EffectResultDetourDelegate>("48 8B C4 44 88 40 18 89 48 08", EffectResultDetour);
+            _effectResultHook.Enable();
+        }
+        catch (Exception e) {
+            Svc.Log.Error(e, "[WorldStateUpdater] effect-result feed unavailable (upstream 7.5 sig, no TC source).");
+        }
 
         _useActionHook?.Enable();
         _updateCatchHook?.Enable();
@@ -113,6 +137,8 @@ public sealed class WorldStateUpdater : IDisposable {
         _useActionHook?.Dispose();
         _updateCatchHook?.Dispose();
         _receiveAchievementProgressHook?.Dispose();
+        _receiveActionEffectHook?.Dispose();
+        _effectResultHook?.Dispose();
         Svc.GameInventory.InventoryChanged -= OnInventoryChanged;
     }
 
@@ -150,9 +176,9 @@ public sealed class WorldStateUpdater : IDisposable {
         UpdateActionStates(ws);
         UpdateDutyActions(ws);
         UpdatePartyAndInstance(ws);
+        UpdateTerritory(ws);
         UpdateOceanFishing(ws);
         UpdateWKS(ws);
-        UpdateTerritory(ws);
         UpdateWeather(ws);
 
         var previousFishingState = ws.Fishing.FishingState;
@@ -470,11 +496,14 @@ public sealed class WorldStateUpdater : IDisposable {
         }
 
         var sf = ws.Spearfishing;
+        var wasWindowOpen = sf.WindowOpen;
         if (sf.WindowOpen != windowOpen || sf.Wariness != wariness || sf.WarinessMax != warinessMax)
             ws.Execute(new SpearfishingInfo.OpHud(windowOpen, wariness, warinessMax));
 
         if (windowOpen && !sf.SessionActive)
             ws.Execute(new SpearfishingInfo.OpSessionActive(true));
+        else if (wasWindowOpen && !windowOpen && sf.SessionActive)
+            ws.Execute(new SpearfishingInfo.OpEndSession());
 
         if (windowOpen) {
             var spot = ResolveCurrentSpearfishingSpot();
@@ -582,7 +611,7 @@ public sealed class WorldStateUpdater : IDisposable {
             CurrentSpotId = routeRow.Spot[zoneIndex].RowId,
             CurrentTimeId = timeId,
             TimeLeftInZone = Math.Max(0f, EventFramework.Instance()->GetInstanceContentDirector()->ContentTimeLeft - ptr->TimeOffset),
-            ZoneTimeMax = ptr->GetContentTimeMax(),
+            ZoneTimeMax = ptr->Duration,
             Mission1 = new OceanMission(ptr->Mission1Type, ptr->Mission1Progress),
             Mission2 = new OceanMission(ptr->Mission2Type, ptr->Mission2Progress),
             Mission3 = new OceanMission(ptr->Mission3Type, ptr->Mission3Progress),
@@ -618,7 +647,7 @@ public sealed class WorldStateUpdater : IDisposable {
                     baitId = cosmic->FishingBait;
             }
             else
-                baitId = FFXIVClientStructs.FFXIV.Client.Game.UI.PlayerState.Instance()->FishingBait;
+                baitId = PlayerState.Instance()->FishingBait;
 
             var ef = EventFramework.Instance();
             // porting-note(api13): CS 6966 types EventHandlerModule.FishingEventHandler as the base
@@ -813,6 +842,54 @@ public sealed class WorldStateUpdater : IDisposable {
         }
     }
 
+
+    private const byte GpGain = 13;
+    private readonly Dictionary<(uint Seq, byte TargetIndex), int> _pendingGp = [];
+
+    public bool HasPendingGp => _pendingGp.Count > 0;
+
+    private unsafe void ActionEffectDetour(uint casterEntityId, Character* casterPtr, Vector3* targetPos, ActionEffectHandler.Header* header, ActionEffectHandler.TargetEffects* effects, GameObjectId* targetEntityIds) {
+        var me = UIState.Instance()->PlayerState.EntityId;
+        for (var i = 0; i < header->NumTargets; i++) {
+            var targetId = targetEntityIds[i].ObjectId;
+            var te = effects[i];
+            for (var j = 0; j < 8; j++) {
+                var e = te.Effects[j];
+                if (e.Type != GpGain)
+                    continue;
+                var atSource = (e.Param4 & 0x80) != 0;
+                var affectsSelf = atSource ? casterEntityId == me : targetId == me;
+                if (!affectsSelf)
+                    continue;
+                _pendingGp[(header->GlobalSequence, (byte)i)] = e.Value;
+            }
+        }
+        _receiveActionEffectHook!.Original(casterEntityId, casterPtr, targetPos, header, effects, targetEntityIds);
+    }
+
+    private unsafe void EffectResultDetour(uint targetId, byte* packet, byte replaying) {
+        if (targetId == UIState.Instance()->PlayerState.EntityId) {
+            var count = packet[0];
+            var p = (EffectResultEntry*)(packet + 4);
+            for (var i = 0; i < count; i++, p++)
+                _pendingGp.Remove((p->RelatedActionSequence, p->RelatedTargetIndex));
+        }
+        _effectResultHook!.Original(targetId, packet, replaying);
+    }
+
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    private struct EffectResultEntry {
+        public uint RelatedActionSequence;
+        public uint ActorID;
+        public uint CurHP;
+        public uint MaxHP;
+        public ushort CurMP;
+        public byte RelatedTargetIndex;
+        public byte ClassID;
+        public byte ShieldValue;
+        public byte EffectCount;
+        public ushort Pad;
+    }
 
     private static readonly HashSet<uint> FishIdSet = [];
 

@@ -17,8 +17,7 @@ public partial class FishingManager {
                 Ws.Execute(new FishingInfo.OpBiteContext(elapsed, chum));
         }
 
-        // early return after bite time is set
-        if (!EzThrottler.Throttle("CheckWhileFishingActions", 200))
+        if (!EzThrottler.Throttle("CheckWhileFishingActions", 200) || _spectralRestPending)
             return;
 
         var hookCfg = GetHookCfg();
@@ -67,6 +66,9 @@ public partial class FishingManager {
                 ContinueStartFishing(autoCast);
                 return;
             }
+
+            if (Service.WorldStateUpdater.HasPendingGp)
+                return;
 
             CastLineMoochOrRelease(acCfg, lastFishCatchCfg);
         }, "AutoCasting");

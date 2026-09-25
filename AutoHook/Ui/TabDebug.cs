@@ -137,7 +137,8 @@ public class TabDebug : BaseTab {
                         ("Lane 0", FormatFishInfo(sf.Lane0)),
                         ("Lane 1", FormatFishInfo(sf.Lane1)),
                         ("Lane 2", FormatFishInfo(sf.Lane2)),
-                        ("Last catch", sf.LastCatchFishId == 0 ? "-" : $"{Svc.Data.GetExcelSheet<Item>().GetRow(sf.LastCatchFishId).Name} ×{sf.LastCatchAmount}"),
+                        ("Fish on screen", sf.FishOnScreenCount.ToString()),
+                        ("Last catch", sf.LastCatchFishId == 0 ? "-" : $"{Sheets.GetRow<Item>(sf.LastCatchFishId).Name} ×{sf.LastCatchAmount}"),
                     ]);
 
                     if (sf.FishCaughtCounts.Count > 0) {
@@ -169,6 +170,7 @@ public class TabDebug : BaseTab {
                         ("Spectral active", of.SpectralCurrentActive.ToString()),
                         ("Route / zone", $"{of.CurrentRoute} / {of.CurrentZone}"),
                         ("Time in zone", $"{of.TimeLeftInZone:F1}s"),
+                        ("Zone time max", $"{of.ZoneTimeMax:F1}s"),
                         ("Auto ocean", Service.Configuration.AutoOceanFish.ToString()),
                         ("Mission 1", $"{of.Mission1.Type} ({of.Mission1.Progress})"),
                         ("Mission 2", $"{of.Mission2.Type} ({of.Mission2.Progress})"),

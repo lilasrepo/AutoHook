@@ -678,6 +678,24 @@ namespace AutoHook.Resources.Localization {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Auto move.
+        /// </summary>
+        internal static string AutoOceanFish_AllowMovement {
+            get {
+                return ResourceManager.GetString("AutoOceanFish_AllowMovement", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to On the first zone, will move to a position along the railing before selecting a preset and casting. Will also try to shuffle around to not stack on top of other players..
+        /// </summary>
+        internal static string AutoOceanFish_AllowMovementHelpText {
+            get {
+                return ResourceManager.GetString("AutoOceanFish_AllowMovementHelpText", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Fall through to next priority if already acquired.
         /// </summary>
         internal static string AutoOceanFish_Fallthrough {
@@ -746,6 +764,15 @@ namespace AutoHook.Resources.Localization {
         internal static string BaitAlreadyExists {
             get {
                 return ResourceManager.GetString("BaitAlreadyExists", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Baited Breath.
+        /// </summary>
+        internal static string BaitedBreath {
+            get {
+                return ResourceManager.GetString("BaitedBreath", resourceCulture);
             }
         }
         
@@ -1486,6 +1513,15 @@ namespace AutoHook.Resources.Localization {
         internal static string EditMe {
             get {
                 return ResourceManager.GetString("EditMe", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Electric Current.
+        /// </summary>
+        internal static string ElectricCurrent {
+            get {
+                return ResourceManager.GetString("ElectricCurrent", resourceCulture);
             }
         }
         
@@ -4857,6 +4893,24 @@ namespace AutoHook.Resources.Localization {
         internal static string Using_Chum_Timer {
             get {
                 return ResourceManager.GetString("Using_Chum_Timer", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Veteran Trade.
+        /// </summary>
+        internal static string VeteranTrade {
+            get {
+                return ResourceManager.GetString("VeteranTrade", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Vital Sight.
+        /// </summary>
+        internal static string VitalSight {
+            get {
+                return ResourceManager.GetString("VitalSight", resourceCulture);
             }
         }
         

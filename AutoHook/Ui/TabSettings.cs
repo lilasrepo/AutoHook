@@ -47,6 +47,7 @@ public class TabSettings : BaseTab {
             using (ImRaii.PushIndent()) {
                 DrawAutoOceanFishGoal();
                 DrawUtil.Checkbox(UIStrings.AutoOceanFish_Fallthrough, ref Service.Configuration.AOF_Fallthrough);
+                DrawUtil.Checkbox(UIStrings.AutoOceanFish_AllowMovement, ref Service.Configuration.AOF_WalkToRailing, UIStrings.AutoOceanFish_AllowMovementHelpText);
             }
         }
         DrawUtil.Checkbox(UIStrings.SpectralRestOnGain, ref Service.Configuration.SpectralRest, UIStrings.SpectralRestOnGainHelpText);
@@ -82,8 +83,8 @@ public class TabSettings : BaseTab {
 
         var goal = Service.Configuration.AutoOceanFishGoal;
 
-        if (ImGui.RadioButton(UIStrings.OceanFishGoal_Points, goal == OceanFishGoalKind.Points)) {
-            Service.Configuration.AutoOceanFishGoal = OceanFishGoalKind.Points;
+        if (ImGui.RadioButton(UIStrings.OceanFishGoal_Levelling, goal == OceanFishGoalKind.Levelling)) {
+            Service.Configuration.AutoOceanFishGoal = OceanFishGoalKind.Levelling;
             Service.Save();
         }
         ImGui.SameLine();
@@ -97,8 +98,8 @@ public class TabSettings : BaseTab {
             Service.Save();
         }
         ImGui.SameLine();
-        if (ImGui.RadioButton(UIStrings.OceanFishGoal_Levelling, goal == OceanFishGoalKind.Levelling)) {
-            Service.Configuration.AutoOceanFishGoal = OceanFishGoalKind.Levelling;
+        if (ImGui.RadioButton(UIStrings.OceanFishGoal_Points, goal == OceanFishGoalKind.Points)) {
+            Service.Configuration.AutoOceanFishGoal = OceanFishGoalKind.Points;
             Service.Save();
         }
     }
